@@ -53,7 +53,7 @@ DenseMatrix operator* (int number, DenseMatrix D) {
 	return D * number;
 }
 
-DenseMatrix DenseMatrix::transform () {
+DenseMatrix DenseMatrix::transpose () {
 	DenseMatrix result = * this;
 	for(int i = 0; i < rows; i++) {
 		for(int j = i + 1; j < cols; j++) {

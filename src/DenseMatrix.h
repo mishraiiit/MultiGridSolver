@@ -1,7 +1,12 @@
-#include <vector>
-
 #ifndef DENSE_MATRIX_H
 #define DENSE_MATRIX_H
+#include <vector>
+#include "DenseVector.h"
+
+class DenseVector;
+class SparseVector;
+class DenseMatrix;
+class SparseMatrix;
 
 class DenseMatrix {
 private:
@@ -13,7 +18,8 @@ private:
 		DenseMatrix operator + (DenseMatrix matrix);
 		DenseMatrix operator * (DenseMatrix matrix);
 		DenseMatrix operator * (int number);
-		DenseMatrix transform();
+		DenseMatrix transpose();
+		DenseVector toDenseVector();
 };
 
 DenseMatrix operator* (int number, DenseMatrix D);

@@ -1,5 +1,10 @@
 #include "bits/stdc++.h"
+
 #include "DenseMatrix.h"
+#include "DenseVector.h"
+#include "SparseMatrix.h"
+#include "SparseVector.h"
+
 #define ll long long int
 using namespace std;
 struct ${$(){
@@ -44,4 +49,11 @@ int main() {
     }
     cout << endl;
   }
+
+  DenseVector D1(5);
+  D1[2] = 5;
+  DenseVector A1 = D1;
+  A1 = A1 + D1 + A1;
+  cout << A1[2] << endl;
+  DenseMatrix Z = A1.toDenseMatrix();
 }
