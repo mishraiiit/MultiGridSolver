@@ -20,6 +20,7 @@ private:
 		DenseMatrix operator * (int number);
 		DenseMatrix transpose();
 		DenseVector toDenseVector();
+		SparseMatrix toSparseMatrix();
 };
 
 DenseMatrix operator* (int number, DenseMatrix D);

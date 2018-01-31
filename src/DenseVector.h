@@ -2,6 +2,7 @@
 #define DENSE_VECTOR_H
 #include <vector>
 #include "DenseMatrix.h"
+#include "SparseVector.h"
 
 class DenseVector;
 class SparseVector;

@@ -1,4 +1,5 @@
 #include "DenseMatrix.h"
+#include "SparseMatrix.h"
 #include <vector>
 #include <assert.h>
 
@@ -61,4 +62,16 @@ DenseMatrix DenseMatrix::transpose () {
 		}
 	}
 	return result;
+}
+
+SparseMatrix DenseMatrix::toSparseMatrix() {
+	std::vector<std::pair<std::pair<int, int>, double> > _data;
+	for(int i = 0; i < rows; i++) {
+		for(int j = 0; j < cols; j++) {
+			if(_matrix[i][j] != 0) {
+				_data.push_back({{i, j}, _matrix[i][j]});
+			}
+		}
+	}
+	return SparseMatrix(_data, rows, cols);
 }

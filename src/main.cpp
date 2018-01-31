@@ -1,10 +1,8 @@
 #include "bits/stdc++.h"
-
-#include "DenseMatrix.h"
 #include "DenseVector.h"
-#include "SparseMatrix.h"
 #include "SparseVector.h"
-
+#include "DenseMatrix.h"
+#include "SparseMatrix.h"
 #define ll long long int
 using namespace std;
 struct ${$(){
@@ -26,34 +24,22 @@ struct ${$(){
   #define trace(...)
 #endif
 
-string operator+(string a, int b) {
-  return a + (char)(b + '0');
-}
-
-string operator+(int a, string b) {
-  return (char)(a + '0') + b;
-}
-
 int main() {
 
   DenseMatrix D(5, 5);
-  D[0][0] = 1;
   for(int i = 0; i < 5; i++) {
-    D[i][0] = i + 5;
-  }
-  D[4][4] = 100;
-  D = D * D * 2;
-  for(int i = 0; i < 5; i++) {
-    for(int j = 0; j < 5; j++) {
-      cout << D[i][j] << " ";
-    }
-    cout << endl;
+    D[i][i] = i;
   }
 
-  DenseVector D1(5);
-  D1[2] = 5;
-  DenseVector A1 = D1;
-  A1 = A1 + D1 + A1;
-  cout << A1[2] << endl;
-  DenseMatrix Z = A1.toDenseMatrix();
+  for(int i = 0; i < 5; i++) {
+    D[0][i] = i;
+  }
+
+  for(int i = 0; i < 5; i++) {
+    D[i][0] = i;
+  }
+
+  cout << D.toSparseMatrix()[3][2] << endl;
+
+  return 0;
 }

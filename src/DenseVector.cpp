@@ -1,4 +1,5 @@
 #include "DenseVector.h"
+#include <vector>
 #include <assert.h>
 
 DenseVector::DenseVector(int n) {
@@ -36,4 +37,14 @@ DenseMatrix DenseVector::toDenseMatrix() {
 		result[i][0] = _data[i];
 	}
 	return result;
+}
+
+SparseVector DenseVector::toSparseVector() {
+	std::vector<std::pair<int, double> > res_data;
+	for(int i = 0; i < size; i++) {
+		if(_data[i] != 0) {
+			res_data.push_back({i, _data[i]});
+		}
+	}
+	return SparseVector(size, res_data);
 }
