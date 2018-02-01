@@ -10,16 +10,17 @@ class DenseMatrix;
 class SparseMatrix;
 
 class DenseVector {
-private:
-		std::vector<double> _data;
-	public:		
-		int size;
-		DenseVector(int n);
-		DenseVector operator+(DenseVector vec);
-		double operator*(DenseVector vec);
-		double & operator[](int index);
-		DenseMatrix toDenseMatrix();
-		SparseVector toSparseVector();
+    private:
+        std::vector<double> _data;
+    public:     
+        int size;
+        DenseVector(int n);
+        DenseVector operator+(DenseVector vec);
+        double operator*(DenseVector vec);
+        double & operator[](int index);
+        DenseMatrix toDenseMatrix();
+        SparseVector toSparseVector();
+        void print();
 };
 
 #endif

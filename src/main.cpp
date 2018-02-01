@@ -1,8 +1,4 @@
 #include "bits/stdc++.h"
-#include "DenseVector.h"
-#include "SparseVector.h"
-#include "DenseMatrix.h"
-#include "SparseMatrix.h"
 #define ll long long int
 using namespace std;
 struct ${$(){
@@ -26,20 +22,7 @@ struct ${$(){
 
 int main() {
 
-  DenseMatrix D(5, 5);
-  for(int i = 0; i < 5; i++) {
-    D[i][i] = i;
-  }
-
-  for(int i = 0; i < 5; i++) {
-    D[0][i] = i;
-  }
-
-  for(int i = 0; i < 5; i++) {
-    D[i][0] = i;
-  }
-
-  cout << D.toSparseMatrix()[3][2] << endl;
+  // implementation file.
 
   return 0;
 }
