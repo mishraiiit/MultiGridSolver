@@ -25,7 +25,9 @@ class SparseMatrix {
         bool operator == (SparseMatrix matrix);
         void print();
         DenseMatrix toDenseMatrix();
-        SparseMatrix transpose ();
+        SparseMatrix transpose();
+        size_t row_size();
+        size_t col_size();
 };
 
 #endif

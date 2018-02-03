@@ -91,3 +91,11 @@ void SparseMatrix::print() {
         data[i].print();
     }
 }
+
+size_t SparseMatrix::row_size() {
+    return rows;
+}
+
+size_t SparseMatrix::col_size() {
+    return cols;
+}

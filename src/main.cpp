@@ -1,4 +1,5 @@
 #include "bits/stdc++.h"
+#include "AGMG.cpp"
 #define ll long long int
 using namespace std;
 struct ${$(){

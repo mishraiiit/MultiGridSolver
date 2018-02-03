@@ -11,6 +11,8 @@ class SparseMatrix;
 class SparseVector {
     private:
         std::vector<std::pair<int, double> > _data; 
+        double _abs_sum;
+        double _sum;
     public:
         int size;
         std::vector<std::pair<int, double> > & getData();
@@ -22,6 +24,8 @@ class SparseVector {
         bool operator == (SparseVector vec);
         bool operator != (SparseVector vec);
         DenseVector toDenseVector();
+        double abs_sum();
+        double sum();
         void print();
 };
 

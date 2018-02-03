@@ -8,6 +8,8 @@ SparseVector::SparseVector(int size, std::vector<std::pair<int, double> > data) 
     for(int i = 0; i < data.size(); i++) {
         assert(data[i].first > last);
         last = data[i].first;
+        _abs_sum += abs(data[i].second);
+        _sum += data[i].second;
     }
 }
 
@@ -98,4 +100,12 @@ DenseVector SparseVector::toDenseVector() {
         result[elem.first] = elem.second;
     }
     return result;
+}
+
+double SparseVector::abs_sum() {
+    return _abs_sum;
+}
+
+double SparseVector::sum() {
+    return _sum;
 }
