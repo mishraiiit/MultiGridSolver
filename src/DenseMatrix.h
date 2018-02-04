@@ -4,6 +4,7 @@
 #include <iostream>
 #include "DenseVector.h"
 
+// Forward declarations.
 class DenseVector;
 class SparseVector;
 class DenseMatrix;
@@ -13,14 +14,14 @@ class DenseMatrix {
     private:
         std::vector<std::vector<double> > _matrix;
     public:
-        int rows, cols;
+        int rows;
+        int cols;
         DenseMatrix(int n, int m);
         std::vector<double> & operator[] (int row);
         DenseMatrix operator + (DenseMatrix matrix);
         DenseMatrix operator * (DenseMatrix matrix);
         DenseMatrix operator * (int number);
         DenseMatrix transpose();
-        DenseVector toDenseVector();
         SparseMatrix toSparseMatrix();
         void print();
 };

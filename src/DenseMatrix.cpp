@@ -55,10 +55,10 @@ DenseMatrix operator* (int number, DenseMatrix D) {
 }
 
 DenseMatrix DenseMatrix::transpose () {
-    DenseMatrix result = * this;
-    for(int i = 0; i < rows; i++) {
-        for(int j = i + 1; j < cols; j++) {
-            result[i][j] = result[j][i];
+    DenseMatrix result(cols, rows);
+    for(int i = 0; i < cols; i++) {
+        for(int j = 0; j < rows; j++) {
+            result[i][j] = (*this)[j][i];
         }
     }
     return result;
@@ -73,7 +73,9 @@ SparseMatrix DenseMatrix::toSparseMatrix() {
             }
         }
     }
-    return SparseMatrix(_data, rows, cols);
+    SparseMatrix result = SparseMatrix(_data, rows, cols);
+    std::cout << "cool 4" << std::endl;
+    return result;
 }
 
 void DenseMatrix::print() {
