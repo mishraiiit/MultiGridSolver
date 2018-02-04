@@ -133,33 +133,36 @@ void testTranspose() {
 void testToSparseMatrix() {
     // Test 1.
     {
-        // DenseMatrix matrix(10, 10);
+        DenseMatrix matrix(10, 10);
 
-        // // Filling at 10 random cells to keep the matrix sparse.
-        // for(int i = 0; i < 10; i++) {
-        //     int j = rand() % 10;
-        //     int k = rand() % 10;
-        //     matrix[j][k] = rand() % 10;    
-        // }
+        // Filling at 10 random cells to keep the matrix sparse.
+        for(int i = 0; i < 10; i++) {
+            int j = rand() % 10;
+            int k = rand() % 10;
+            matrix[j][k] = rand() % 10;    
+        }
 
-        // SparseMatrix sparse_matrix = matrix.toSparseMatrix();
-        // assert(sparse_matrix.row_size() == matrix.rows);
-        // assert(sparse_matrix.col_size() == matrix.cols);
-        // for(int i = 0; i < 10; i++) {
-        //     for(int j = 0; j < 10; j++) {
-        //         assert(matrix[i][j] == sparse_matrix[i][j]);
-        //     }
-        // }
+        SparseMatrix sparse_matrix = matrix.toSparseMatrix();
+        assert(sparse_matrix.row_size() == matrix.rows);
+        assert(sparse_matrix.col_size() == matrix.cols);
+        for(int i = 0; i < 10; i++) {
+            for(int j = 0; j < 10; j++) {
+                assert(matrix[i][j] == sparse_matrix[i][j]);
+            }
+        }
     }
 }
 
 
 int main() {
+    
     testAddition();
     testMultiplication();
     testRandomRowAccess();
     testMultiplicationDenseMatrixNumber();
     testMultiplicationNumberDenseMatrix();
     testTranspose();
-    testToSparseMatrix();
+    //testToSparseMatrix();
+
+    return 0;
 }
