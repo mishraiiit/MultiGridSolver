@@ -20,6 +20,7 @@ class DenseVector {
         double & operator[](int index);
         DenseMatrix toDenseMatrix();
         SparseVector toSparseVector();
+        bool operator==(DenseVector vec);
         void print();
 };
 

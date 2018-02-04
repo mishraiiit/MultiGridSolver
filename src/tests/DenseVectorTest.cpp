@@ -77,6 +77,26 @@ void testToDenseMatrix() {
     }
 }
 
+void testEqualOperator() {
+    // Test 1.
+    {
+        DenseVector A(4), B(4);
+        std::vector<int> C_vec(4);
+        for(int i = 0; i < 4; i++) {
+            A[i] = rand() % 100;
+            B[i] = rand() % 100;
+            C_vec[i] = A[i] + B[i];
+        }
+        DenseVector C(4), D(4);
+        C = A + B;
+        for(int i = 0; i < 4; i++) {
+            D[i] = C_vec[i];
+        }
+        assert(A + B == B + A);
+        assert(C == D);
+    }
+}
+
 int main() {
     
     testSize();
@@ -84,6 +104,7 @@ int main() {
     testMultiplication();
     testRandomAccessOperator();
     testToDenseMatrix();
+    testEqualOperator();
 
     return 0;
 }

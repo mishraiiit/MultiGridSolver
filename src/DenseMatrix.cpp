@@ -74,7 +74,6 @@ SparseMatrix DenseMatrix::toSparseMatrix() {
         }
     }
     SparseMatrix result = SparseMatrix(_data, rows, cols);
-    std::cout << "cool 4" << std::endl;
     return result;
 }
 

@@ -18,6 +18,7 @@ std::vector<std::pair<int, double> > & SparseVector::getData() {
 }
 
 double SparseVector::operator[] (int index) {
+    assert(index < size);
     int l = 0, r = _data.size() - 1;
     if(_data[r].first < index)
         return 0;
@@ -28,10 +29,10 @@ double SparseVector::operator[] (int index) {
         } else {
             r = mid;
         }
-        if(_data[l].first > index)
-            return 0;
-        return _data[l].second;
     }
+    if(_data[l].first > index)
+        return 0;
+    return _data[l].second;
 }
 
 SparseVector SparseVector::operator+ (SparseVector vec) {
@@ -46,7 +47,8 @@ SparseVector SparseVector::operator+ (SparseVector vec) {
             res_data.push_back(vec._data[j]);
             j++;
         } else {
-            res_data.push_back({_data[i].first, _data[i].second + vec._data[j].second});
+            if(_data[i].second + vec._data[j].second != 0)
+                res_data.push_back({_data[i].first, _data[i].second + vec._data[j].second});
             i++; j++;
         }
     }

@@ -1,3 +1,5 @@
 src/main
 src/tests/DenseMatrixTest
 src/tests/DenseVectorTest
+src/tests/SparseMatrixTest
+src/tests/SparseVectorTest

@@ -55,3 +55,13 @@ void DenseVector::print() {
     }
     std::cout << std::endl;
 }
+
+bool DenseVector::operator==(DenseVector B) {
+    if(size != B.size)
+        return false;
+    for(int i = 0; i < size; i++) {
+        if((*this)[i] != B[i])
+            return false;
+    }
+    return true;
+}
