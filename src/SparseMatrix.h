@@ -27,6 +27,8 @@ class SparseMatrix {
         SparseMatrix operator * (SparseVector vec);
         SparseMatrix operator + (SparseMatrix matrix);
         DenseMatrix operator + (DenseMatrix matrix);
+        double getRowColAbsSum(int index);
+        double getRowColSum(int index);
         bool operator == (SparseMatrix matrix);
         void print();
         DenseMatrix toDenseMatrix();

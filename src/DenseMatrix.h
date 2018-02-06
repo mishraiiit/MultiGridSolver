@@ -19,6 +19,7 @@ class DenseMatrix {
         DenseMatrix(int n, int m);
         std::vector<double> & operator[] (int row);
         DenseMatrix operator + (DenseMatrix matrix);
+        bool operator== (DenseMatrix matrix);
         DenseMatrix operator * (DenseMatrix matrix);
         DenseMatrix operator * (int number);
         DenseMatrix transpose();

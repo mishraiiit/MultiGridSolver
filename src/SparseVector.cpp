@@ -1,4 +1,5 @@
 #include "SparseVector.h"
+#include "Utility.h"
 #include "DenseVector.h"
 #include <assert.h>
 
@@ -38,27 +39,10 @@ double SparseVector::operator[] (int index) {
 SparseVector SparseVector::operator+ (SparseVector vec) {
     assert(size == vec.size);
     std::vector<std::pair<int, double> > res_data;
-    int i = 0, j = 0;
-    while(i < _data.size() && j < vec._data.size()) {
-        if(_data[i].first < vec._data[j].first) {
-            res_data.push_back(_data[i]);
-            i++;
-        } else if(_data[i].first > vec._data[j].first) {
-            res_data.push_back(vec._data[j]);
-            j++;
-        } else {
-            if(_data[i].second + vec._data[j].second != 0)
-                res_data.push_back({_data[i].first, _data[i].second + vec._data[j].second});
-            i++; j++;
-        }
-    }
-    while(i < _data.size()) {
-        res_data.push_back(_data[i]);
-        i++;
-    }
-    while(j < vec._data.size()) {
-        res_data.push_back(vec._data[j]);
-        j++;
+    std::vector<std::pair<int, std::pair<double, double> > > union_lis = \
+        union_list(getData(), vec.getData());
+    for(std::pair<int, std::pair<double, double> > index_info : union_lis) {
+        res_data.push_back({index_info.first, index_info.second.first + index_info.second.second});
     }
     return SparseVector(size, res_data);
 }
@@ -66,16 +50,10 @@ SparseVector SparseVector::operator+ (SparseVector vec) {
 double SparseVector::operator* (SparseVector vec) {
     assert(size == vec.size);
     double result = 0;
-    int i = 0, j = 0;
-    while(i < _data.size() && j < vec._data.size()) {
-        if(_data[i].first < vec._data[j].first) {
-            i++;
-        } else if(_data[i].first > vec._data[j].first) {
-            j++;
-        } else {
-            result += _data[i].second * vec._data[j].second;
-            i++; j++;
-        }
+    std::vector<std::pair<int, std::pair<double, double> > > intersection = \
+        intersection_list(getData(), vec.getData());
+    for(std::pair<int, std::pair<double, double> > index_info : intersection) {
+        result += index_info.second.first * index_info.second.second;
     }
     return result;
 }

@@ -15,7 +15,7 @@ namespace AGMG {
 		*/
 		std::set<int> g0;
 		for(int i = 0; i < n; i++) {
-			if(A[i][i] >= ((ktg + 1) / (ktg - 1)) * (A[i].abs_sum() - abs(A[i][i]))) {
+			if(A[i][i] >= (ktg / (ktg - 2)) * A.getRowColAbsSum(i)) {
 				g0.insert(i);
 			}
 		}
@@ -56,20 +56,24 @@ namespace AGMG {
 			// mu({i, j})
 			// Lambda function takes inp {i, j} and returns mu({i, j}).
 			auto mu = [&A] (int i, int j) {
-				double si = - (A[i].sum() - A[i][i]);
-				double sj = - (A[j].sum() - A[j][j]);
-				double num = -A[i][j] + (1/((1/(A[i][i] + si + 2 * A[i][j])) + (1 / (A[j][j] + sj + 2 * A[i][j]))));
-				double den = -A[i][j] + (1/((1/(A[i][i] - si))+(1/(A[j][j] - sj))));
+				double si = - A.getRowColSum(i);
+				double sj = - A.getRowColSum(j);
+				double num = 2 / (1 / A[i][i] + 1 / A[j][j]);	
+				double den = (- (A[i][j] + A[j][i]) / 2) + 1 / (1 / (A[i][i] - si) + 1 / (A[j][j] - sj));
 				return num / den;
 			};
 
 			for(int j : u) {
 				if((j != i) && (A[i][j] != 0)) {
-					// Finding the best j.
-					double current_mu_ij = mu(i, j);
-					if((best_j == -1) || (current_mu_ij < best_mu_ij)) {
-						best_j = j;
-						best_mu_ij = mu(i, j);
+					double si = - A.getRowColSum(i);
+					double sj = - A.getRowColSum(j);
+					if(A[i][i] - si + A[j][j] - sj >= 0) {
+						// Finding the best j.
+						double current_mu_ij = mu(i, j);
+						if((best_j == -1) || (current_mu_ij < best_mu_ij)) {
+							best_j = j;
+							best_mu_ij = mu(i, j);
+						}
 					}
 				}
 			}

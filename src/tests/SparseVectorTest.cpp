@@ -18,6 +18,13 @@ void testGetData() {
 		SparseVector vec(10, data);
 		assert(vec.getData() == data);
 	}
+
+	// Test 2.
+	{
+		std::vector <std::pair<int, double> > data = {{2, 3}, {3, 4}, {5, 7}};
+		SparseVector vec(10, data);
+		vec.getData() = {};
+	}
 }
 
 void testRandomAccessOperator() {

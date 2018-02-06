@@ -1,6 +1,7 @@
 #include "../SparseMatrix.h"
 #include "../DenseMatrix.h"
 #include <assert.h>
+#include <map>
 
 void testAddition() {
 	// Test 1.
@@ -34,12 +35,38 @@ void testMultiplication() {
 		}
 		assert(A.toSparseMatrix() * B.toSparseMatrix() == (A * B).toSparseMatrix());
 	}
-	
+
+	// Test 3.
+	{
+		std::map<std::pair<int, int>, double> M;
+		int N = 500;
+		int entries = 10000;
+		while(entries--) {
+			M[{rand() % N, rand() % N}] = rand() % N;
+		}
+		SparseMatrix S(std::vector<std::pair<std::pair<int, int>, double> > (M.begin(), M.end()), N, N);
+		assert(S * S == (S.toDenseMatrix() * S.toDenseMatrix()).toSparseMatrix());
+	}
+}
+
+void testTranspose() {
+	// Test 1.
+	{
+		std::map<std::pair<int, int>, double> M;
+		int N = 500;
+		int entries = 10000;
+		while(entries--) {
+			M[{rand() % N, rand() % N}] = rand() % N;
+		}
+		SparseMatrix S_SM(std::vector<std::pair<std::pair<int, int>, double> > (M.begin(), M.end()), N, N);
+		DenseMatrix S_DM = S_SM.toDenseMatrix();
+		assert(S_SM.transpose().toDenseMatrix() == S_DM.transpose());
+	}
 }
 
 int main() {
 
 	testAddition();
 	testMultiplication();
-	
+	testTranspose();
 }

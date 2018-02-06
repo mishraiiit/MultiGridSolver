@@ -1,4 +1,5 @@
 #include "SparseMatrix.h"
+#include "Utility.h"
 #include <utility>
 #include <vector>
 #include <algorithm>
@@ -114,4 +115,21 @@ SparseMatrix * SparseMatrix::computeTranspose() {
     }
     sort(new_data.begin(), new_data.end());
     return new SparseMatrix(new_data, cols, rows, this);
+}
+
+double SparseMatrix::getRowColAbsSum(int index) {
+    auto & row_data = getRowVector(index).getData();
+    auto & col_data = getRowVector(index).getData();
+    double sum = 0;
+    std::vector<std::pair<int, std::pair<double, double> > > union_lis = \
+        union_list(row_data, col_data);
+    for(std::pair<int, std::pair<double, double> > index_info : union_lis) {
+        if(index_info.first != index)
+            sum += abs(index_info.second.first + index_info.second.second) / 2.0;
+    }
+    return sum;
+}
+
+double SparseMatrix::getRowColSum(int index) {
+    return ((getRowVector(index).sum() + getColumnVector(index).sum()) / 2.0) - operator[](index)[index];
 }
