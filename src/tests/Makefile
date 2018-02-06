@@ -21,5 +21,10 @@ DenseVectorTest:
 	./DenseVectorTest
 	echo "\n\nTests for DenseVector completed successfully.\n\n"
 
+UtilityTest:
+	g++ -std=c++11 -o UtilityTest UtilityTest.cpp ../Utility.cpp;
+	./UtilityTest
+	echo "\n\nTests for Utility completed successfully.\n\n"
 
-test: DenseMatrixTest SparseMatrixTest SparseVectorTest DenseVectorTest
+
+test: DenseMatrixTest SparseMatrixTest SparseVectorTest DenseVectorTest UtilityTest
