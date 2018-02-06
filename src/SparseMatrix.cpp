@@ -4,15 +4,19 @@
 #include <algorithm>
 #include <assert.h>
 
-SparseMatrix::SparseMatrix(std::vector<std::pair<std::pair<int, int>, double> > _data, int _rows, int _cols) {
+SparseMatrix::SparseMatrix(std::vector<std::pair<std::pair<int, int>, double> > _data, int _rows, int _cols, SparseMatrix * _transpose) {
     rows = _rows;
     cols = _cols;
+    transpose_matrix = _transpose;
     data = std::vector<SparseVector> (rows, SparseVector(cols, {}));
     int last_row = -1;
     std::vector<std::pair<int, double> > row_data;
     for(int i = 0; i < _data.size(); i++) {
         if(_data[i].second != 0)
             data[_data[i].first.first].getData().push_back({_data[i].first.second, _data[i].second});
+    }
+    if(transpose_matrix == NULL) {
+        transpose_matrix = computeTranspose();
     }
 }
 
@@ -26,19 +30,19 @@ SparseMatrix::SparseMatrix(std::vector<SparseVector> _data, int _rows, int _cols
 }
 
 SparseMatrix SparseMatrix::transpose() {
-    std::vector<std::pair<std::pair<int, int>, double> > new_data;
-    for(int i = 0; i < data.size(); i++) {
-        std::vector<std::pair<int, double> > & row_data = data[i].getData();
-        for(std::pair<int, double> elem : row_data) {
-            new_data.push_back({{elem.first, i}, elem.second});
-        }
-    }
-    sort(new_data.begin(), new_data.end());
-    return SparseMatrix(new_data, cols, rows);
+    return * transpose_matrix;
 }
 
 SparseVector & SparseMatrix::operator[] (int index) {
     return data[index];
+}
+
+SparseVector & SparseMatrix::getRowVector(int index) {
+    return data[index];
+}
+
+SparseVector & SparseMatrix::getColumnVector(int index) {
+    return transpose_matrix->getColumnVector(index);
 }
 
 SparseMatrix SparseMatrix::operator * (SparseMatrix matrix) {
@@ -98,4 +102,16 @@ size_t SparseMatrix::row_size() {
 
 size_t SparseMatrix::col_size() {
     return cols;
+}
+
+SparseMatrix * SparseMatrix::computeTranspose() {
+    std::vector<std::pair<std::pair<int, int>, double> > new_data;
+    for(int i = 0; i < data.size(); i++) {
+        std::vector<std::pair<int, double> > & row_data = data[i].getData();
+        for(std::pair<int, double> elem : row_data) {
+            new_data.push_back({{elem.first, i}, elem.second});
+        }
+    }
+    sort(new_data.begin(), new_data.end());
+    return new SparseMatrix(new_data, cols, rows, this);
 }

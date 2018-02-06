@@ -10,12 +10,17 @@ class SparseMatrix;
 
 class SparseMatrix {
     private:
+        SparseMatrix * transpose_matrix;
         int rows, cols;
         std::vector<SparseVector> data;
+        SparseMatrix * computeTranspose();
     public:
-        SparseMatrix(std::vector<std::pair<std::pair<int, int>, double> > _data, int _rows, int _cols);
+        SparseMatrix(std::vector<std::pair<std::pair<int, int>, double> > _data, int _rows, int _cols, SparseMatrix * _transpose=NULL);
         SparseMatrix(std::vector<SparseVector> _data, int _rows, int _cols);
         SparseVector & operator[] (int index);
+        SparseVector & getRowVector(int index);
+        SparseVector & getColumnVector(int index);
+        SparseMatrix transpose();   
         SparseMatrix operator * (SparseMatrix matrix);
         SparseMatrix operator * (DenseMatrix matrix);
         DenseVector operator * (DenseVector vec);
@@ -25,7 +30,6 @@ class SparseMatrix {
         bool operator == (SparseMatrix matrix);
         void print();
         DenseMatrix toDenseMatrix();
-        SparseMatrix transpose();
         size_t row_size();
         size_t col_size();
 };

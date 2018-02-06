@@ -10,6 +10,7 @@ class SparseMatrix;
 
 class SparseVector {
     private:
+        SparseMatrix * _transpose;
         std::vector<std::pair<int, double> > _data; 
         double _abs_sum;
         double _sum;
