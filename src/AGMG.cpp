@@ -36,6 +36,14 @@ namespace AGMG {
         */
         int nc = 0;
 
+        /*
+            Compute si vector.
+        */
+        std::vector<double> s(n);
+        for(int i = 0; i < n; i++) {
+            s[i] = - A.getRowColSum(i);
+        }
+
 
         /* Iteration part of this routine now. */
 
@@ -55,9 +63,9 @@ namespace AGMG {
 
             // mu({i, j})
             // Lambda function takes inp {i, j} and returns mu({i, j}).
-            auto mu = [&A] (int i, int j) {
-                double si = - A.getRowColSum(i);
-                double sj = - A.getRowColSum(j);
+            auto mu = [&A, &s] (int i, int j) {
+                double si = s[i];
+                double sj = s[j];
                 double num = 2 / (1 / A[i][i] + 1 / A[j][j]);   
                 double den = (- (A[i][j] + A[j][i]) / 2) + 1 / (1 / (A[i][i] - si) + 1 / (A[j][j] - sj));
                 return num / den;
@@ -93,12 +101,12 @@ namespace AGMG {
 
 
     std::pair<int, std::vector<std::set<int> > > further_pairwise_aggregation \
-    (int n, SparseMatrix & A, double ktg, int nc_bar, vector<set<int> > gk_bar, SparseMatrix & A_bar) {
+    (int n, SparseMatrix & A, double ktg, int nc_bar, std::vector<std::set<int> > gk_bar, SparseMatrix & A_bar) {
 
         assert(gk_bar.size() == nc_bar);
 
         /* Initialization part of this routine.  */
-        set<int> u;
+        std::set<int> u;
         for(int i = 0; i < nc_bar; i++) {
             u.insert(i);
         }
@@ -107,13 +115,13 @@ namespace AGMG {
         // i varies from 0 to nc_bar - 1. (in the paper it varies from 1 to nc_bar, but we follow
         // 0 based indexing. )
 
-        vector<double> si_bar(nc_bar);
+        std::vector<double> si_bar(nc_bar);
         for(int i = 0; i < nc_bar; i++) {
             for(int k : gk_bar[i]) {
                 for(int j = 0; j < nc_bar; j++) {
                     if(gk_bar[i].count(j) == 0) {
                         // DOUBT
-                        si_bar[i] += (A[i][j] + A[j][i]) / 2
+                        si_bar[i] += (A[i][j] + A[j][i]) / 2;
                     }
                 }
             }
