@@ -43,3 +43,10 @@ std::vector<std::pair<int, std::pair<double, double> > > intersection_list(std::
     }
     return result;
 }
+
+std::set<int> merge_sets(std::set<int> arg1, std::set<int> arg2) {
+    for(int vec : arg2) {
+        arg1.insert(vec);
+    }
+    return arg1;
+}

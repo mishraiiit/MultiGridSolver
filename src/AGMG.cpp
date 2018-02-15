@@ -1,4 +1,5 @@
 #include "SparseMatrix.h"
+#include "Utility.h"
 #include <assert.h>
 #include <set>
 
@@ -67,7 +68,8 @@ namespace AGMG {
                 double si = s[i];
                 double sj = s[j];
                 double num = 2 / (1 / A[i][i] + 1 / A[j][j]);   
-                double den = (- (A[i][j] + A[j][i]) / 2) + 1 / (1 / (A[i][i] - si) + 1 / (A[j][j] - sj));
+                double den = (- (A[i][j] + A[j][i]) / 2) + 1 / (1 / \
+                (A[i][i] - si) + 1 / (A[j][j] - sj));
                 return num / den;
             };
 
@@ -101,8 +103,9 @@ namespace AGMG {
 
 
     std::pair<int, std::vector<std::set<int> > > further_pairwise_aggregation \
-    (int n, SparseMatrix & A, double ktg, int nc_bar, std::vector<std::set<int> > gk_bar, SparseMatrix & A_bar) {
-
+      (int n, SparseMatrix & A, double ktg, int nc_bar, \
+      std::vector<std::set<int> > gk_bar, SparseMatrix & A_bar) {
+        std::vector<std::set<int> > g_vec;
         assert(gk_bar.size() == nc_bar);
 
         /* Initialization part of this routine.  */
@@ -112,8 +115,8 @@ namespace AGMG {
         }
         int nc = 0;
 
-        // i varies from 0 to nc_bar - 1. (in the paper it varies from 1 to nc_bar, but we follow
-        // 0 based indexing. )
+        // i varies from 0 to nc_bar - 1. (in the paper it varies from 1 to 
+        // nc_bar, but we follow 0 based indexing. )
 
         std::vector<double> si_bar(nc_bar);
         for(int i = 0; i < nc_bar; i++) {
@@ -121,16 +124,53 @@ namespace AGMG {
                 for(int j = 0; j < nc_bar; j++) {
                     if(gk_bar[i].count(j) == 0) {
                         // DOUBT
-                        si_bar[i] += (A[i][j] + A[j][i]) / 2;
+                        si_bar[i] += (A[k][j] + A[j][k]) / 2;
                     }
                 }
             }
             si_bar[i] = - si_bar[i];
         }
 
-        // DOUBT
+        auto mu_barij = [&A_bar, &si_bar](int i, int j) {
+            double num = 2 / ((1 / A_bar[i][i]) + (1 / A_bar[j][j]));
+            double den = (-((A_bar[i][j] + A_bar[j][i]) / 2)) + 1 / ((1 /\
+             (A_bar[i][i] - si_bar[i]))  + (1 / (A_bar[j][j] - si_bar[j])));
+            return num / den;
+        };
 
+        while(!u.empty()) {
+            int i = * u.begin();
+            std::set<int> T;
+            for(int j = 0; j < nc_bar; j++) {
+                double mu_ij_val = mu_barij(i, j);
+                if(A_bar[i][j] != 0 && ((A_bar[i][i] - si_bar[i] + A_bar[j][j] -\
+                 si_bar[j]) >= 0) && (0 < mu_ij_val && mu_ij_val <= ktg)) {
+                    T.insert(j);
+                }
+            }
+            nc = nc + 1;
+            if(!T.empty()) {
+                int best_j = * T.begin();
+                double best_mu_ij = mu_barij(i, best_j);
+                for(int j : T) {
+                    double curr_mu_ij = mu_barij(i, j);
+                    if(curr_mu_ij < best_mu_ij) {
+                        best_mu_ij = curr_mu_ij;
+                        best_j = j;
+                    }
+                }
+                std::set<int> f = gk_bar[i];
+                std::set<int> s = gk_bar[best_j];
+                g_vec.push_back(merge_sets(f, s));
+                u.erase(i);
+                u.erase(best_j);
+            } else {
+                g_vec.push_back(gk_bar[i]);
+                u.erase(i);
+            }
+        }
+        assert(nc == g_vec.size());
+        return {nc, g_vec};
     }
-
 
 };
