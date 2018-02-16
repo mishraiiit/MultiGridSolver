@@ -1,6 +1,7 @@
 #ifndef SPARSE_MATRIX_H
 #define SPARSE_MATRIX_H
 #include <vector>
+#include <string>
 #include "SparseVector.h"
 
 class DenseVector;
@@ -17,6 +18,7 @@ class SparseMatrix {
     public:
         SparseMatrix(std::vector<std::pair<std::pair<int, int>, double> > _data, int _rows, int _cols, SparseMatrix * _transpose=NULL);
         SparseMatrix(std::vector<SparseVector> _data, int _rows, int _cols);
+        SparseMatrix(std::string s);
         SparseVector & operator[] (int index);
         SparseVector & getRowVector(int index);
         SparseVector & getColumnVector(int index);

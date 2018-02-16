@@ -32,6 +32,13 @@ int main() {
     {0, 2, 0, 1},
   }).toSparseMatrix();
 
+  std::string inp_file("tests/sparse_matrix.txt");
+  SparseMatrix T(inp_file);
+  cout << T.row_size() << endl;
+  assert(T.row_size() == 4);
+  assert(T.col_size() == 4);
+  T.print();
+
   auto result = AGMG::multiple_pairwise_aggregation(S.row_size(), S, 3, 0, 1);
   cout << result.first.first << endl;
   result.second.print();

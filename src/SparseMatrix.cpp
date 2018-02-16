@@ -2,6 +2,7 @@
 #include "Utility.h"
 #include <utility>
 #include <vector>
+#include <fstream>
 #include <algorithm>
 #include <assert.h>
 
@@ -9,6 +10,40 @@ SparseMatrix::SparseMatrix(std::vector<std::pair<std::pair<int, int>, double> > 
     rows = _rows;
     cols = _cols;
     transpose_matrix = _transpose;
+    data = std::vector<SparseVector> (rows, SparseVector(cols, {}));
+    int last_row = -1;
+    std::vector<std::pair<int, double> > row_data;
+    for(int i = 0; i < _data.size(); i++) {
+        if(_data[i].second != 0)
+            data[_data[i].first.first].getData().push_back({_data[i].first.second, _data[i].second});
+    }
+    if(transpose_matrix == NULL) {
+        transpose_matrix = computeTranspose();
+    }
+}
+
+SparseMatrix::SparseMatrix(std::string s) {
+    std::ifstream fin(s);
+    if(fin.fail()) {
+        std::cout << "File " << s << " not found.";
+        exit(1);
+    }
+    int _rows, _cols, _nnz;
+    fin >> _rows >> _cols >> _nnz;
+    std::cout << _rows << " " << _cols << " " << _nnz << std::endl;
+
+    std::vector<std::pair<std::pair<int, int>, double> > _data;
+    for(int i = 0; i < _nnz; i++) {
+        int x, y;
+        double value;
+        fin >> x >> y >> value;
+        x--; y--;
+        _data.push_back({{x, y}, value});
+    }
+    std::sort(_data.begin(), _data.end());
+    rows = _rows;
+    cols = _cols;
+    transpose_matrix = NULL;
     data = std::vector<SparseVector> (rows, SparseVector(cols, {}));
     int last_row = -1;
     std::vector<std::pair<int, double> > row_data;
