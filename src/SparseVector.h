@@ -28,6 +28,7 @@ class SparseVector {
         double abs_sum();
         double sum();
         void print();
+        int nnz();
 };
 
 #endif

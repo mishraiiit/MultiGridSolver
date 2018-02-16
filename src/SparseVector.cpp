@@ -89,3 +89,11 @@ double SparseVector::abs_sum() {
 double SparseVector::sum() {
     return _sum;
 }
+
+int SparseVector::nnz() {
+    int ans = 0;
+    for(std::pair<int, double> elem : _data) {
+        ans += (elem.second != 0);
+    }
+    return ans;
+}

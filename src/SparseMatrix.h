@@ -34,6 +34,7 @@ class SparseMatrix {
         DenseMatrix toDenseMatrix();
         size_t row_size();
         size_t col_size();
+        int nnz();
 };
 
 #endif

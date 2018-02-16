@@ -133,3 +133,11 @@ double SparseMatrix::getRowColAbsSum(int index) {
 double SparseMatrix::getRowColSum(int index) {
     return ((getRowVector(index).sum() + getColumnVector(index).sum()) / 2.0) - operator[](index)[index];
 }
+
+int SparseMatrix::nnz() {
+    int ans = 0;
+    for(int i = 0; i < rows; i++) {
+        ans += data[i].nnz();
+    }
+    return ans;
+}
