@@ -20,7 +20,8 @@ class SparseMatrix {
         SparseVector & operator[] (int index);
         SparseVector & getRowVector(int index);
         SparseVector & getColumnVector(int index);
-        SparseMatrix transpose();   
+        SparseMatrix transpose();
+        void changed();
         SparseMatrix operator * (SparseMatrix matrix);
         SparseMatrix operator * (DenseMatrix matrix);
         DenseVector operator * (DenseVector vec);

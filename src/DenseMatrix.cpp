@@ -9,6 +9,12 @@ DenseMatrix::DenseMatrix(int n, int m) {
     _matrix = std::vector<std::vector<double> > (n, std::vector<double> (m, 0));
 }
 
+DenseMatrix::DenseMatrix(std::vector<std::vector<double> > matrix) {
+    rows = matrix.size();
+    cols = matrix[0].size();
+    _matrix = matrix;
+}
+
 std::vector<double> & DenseMatrix::operator[] (int row) {
     assert(row < rows);
     return _matrix[row];

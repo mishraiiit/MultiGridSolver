@@ -21,16 +21,25 @@ SparseMatrix::SparseMatrix(std::vector<std::pair<std::pair<int, int>, double> > 
     }
 }
 
+void SparseMatrix::changed() {
+    transpose_matrix = computeTranspose();
+}
+
 SparseMatrix::SparseMatrix(std::vector<SparseVector> _data, int _rows, int _cols) {
+    assert(_data.size() == _rows);
     rows = _rows;
     cols = _cols;
     data = _data;
     for(int i = 0; i < rows; i++) {
         assert(data[i].size == cols);
     }
+    if(transpose_matrix == NULL) {
+        transpose_matrix = computeTranspose();
+    }
 }
 
 SparseMatrix SparseMatrix::transpose() {
+    assert(transpose_matrix != NULL);
     return * transpose_matrix;
 }
 
@@ -39,11 +48,16 @@ SparseVector & SparseMatrix::operator[] (int index) {
 }
 
 SparseVector & SparseMatrix::getRowVector(int index) {
+    assert(index < data.size());
+    assert(data[index].size == col_size());
     return data[index];
 }
 
 SparseVector & SparseMatrix::getColumnVector(int index) {
-    return transpose_matrix->getColumnVector(index);
+    assert(index < transpose_matrix->data.size());
+    assert(transpose_matrix->data[index].size == row_size());
+    assert(transpose_matrix != NULL);
+    return transpose_matrix->getRowVector(index);
 }
 
 SparseMatrix SparseMatrix::operator * (SparseMatrix matrix) {
@@ -131,6 +145,7 @@ double SparseMatrix::getRowColAbsSum(int index) {
 }
 
 double SparseMatrix::getRowColSum(int index) {
+
     return ((getRowVector(index).sum() + getColumnVector(index).sum()) / 2.0) - operator[](index)[index];
 }
 

@@ -6,13 +6,17 @@
 namespace AGMG {
 
     SparseMatrix compressMatrix(SparseMatrix A, std::vector<std::set<int> > g_vec) {
-        SparseMatrix P(std::vector<SparseVector> (), A.row_size(), g_vec.size());
+        SparseMatrix P(std::vector<SparseVector> (A.row_size(), SparseVector(g_vec.size(), {})), A.row_size(), g_vec.size());
         for(int j = 0; j < g_vec.size(); j++) {
             for(int i : g_vec[j]) {
+                assert(i < A.row_size());
+                assert(j < g_vec.size());
                 P[i].size = g_vec.size();
                 P[i].getData().push_back({j, 1});
             }
         }
+        P.changed();
+        SparseMatrix X = P.transpose();
         return P.transpose() * A * P;
     }
 
@@ -20,6 +24,7 @@ namespace AGMG {
     initial_pairwise_aggregation
     (int n, SparseMatrix & A, double ktg) {
         std::vector<std::set<int> > g_vec;
+
         assert(n == A.row_size());
 
         /* Initialization part of this routine.  */
@@ -57,11 +62,9 @@ namespace AGMG {
             s[i] = - A.getRowColSum(i);
         }
 
-
         /* Iteration part of this routine now. */
 
         while(!u.empty()) {
-
             /* Selecting an i */
             int i = * u.begin();
 
@@ -109,6 +112,7 @@ namespace AGMG {
                 u.erase(i);
             }
         }
+
         assert(nc == g_vec.size());
         return {nc, {g0, g_vec}};
     }
@@ -187,24 +191,19 @@ namespace AGMG {
     }
 
 
-    //     std::pair<int, std::vector<std::set<int> > >
-    // further_pairwise_aggregation 
-    // (int n, SparseMatrix & A, double ktg, int nc_bar,
-    //   std::vector<std::set<int> > gk_bar, SparseMatrix & A_bar) {
-
-
     std::pair<std::pair<int, std::vector<std::set<int> > >, SparseMatrix> 
     multiple_pairwise_aggregation 
     (int n, SparseMatrix & A, double ktg, int npass , double tou) {
         std::pair<int, std::pair<std::set<int>, std::vector<std::set<int> > > > 
         first_result = initial_pairwise_aggregation(n, A, ktg);
-
+        
         std::pair<int, std::vector<std::set<int> > > last_result = 
             {first_result.first, first_result.second.second};
 
         SparseMatrix last_A = compressMatrix(A, last_result.second);
 
         int non_zero_in_A = A.nnz();
+
         for(int s = 2; s <= npass; s++) {
              last_result = further_pairwise_aggregation(
                 n, A, ktg, last_result.first, last_result.second, last_A);

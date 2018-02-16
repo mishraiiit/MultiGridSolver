@@ -17,6 +17,7 @@ class DenseMatrix {
         int rows;
         int cols;
         DenseMatrix(int n, int m);
+        DenseMatrix(std::vector<std::vector<double> > matrix);
         std::vector<double> & operator[] (int row);
         DenseMatrix operator + (DenseMatrix matrix);
         bool operator== (DenseMatrix matrix);
