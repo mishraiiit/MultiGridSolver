@@ -75,6 +75,20 @@ void testToDenseVector() {
 	}
 }
 
+void testNnz() {
+	// Test 1.
+	{
+		SparseVector A(10, {{0, 2}, {2, 3}, {8, 8}, {9, 2}});
+		assert(A.nnz() == 4);
+	}
+
+	// Test 2.
+	{
+		SparseVector A(10, {{0, 2}, {1, 2}, {5, 1}, {8, 1}});
+		assert(A.nnz() == 4);
+	}
+}
+
 
 
 int main() {
@@ -84,6 +98,7 @@ int main() {
 	testRandomAccessOperator();
 	testAddition();
 	testToDenseVector();
+	testNnz();
 
 	return 0;
 }
