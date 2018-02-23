@@ -49,6 +49,21 @@ void testMultiplication() {
         SparseMatrix S(std::vector<std::pair<std::pair<int, int>, double> > (M.begin(), M.end()), N, N);
         assert(S * S == (S.toDenseMatrix() * S.toDenseMatrix()).toSparseMatrix());
     }
+
+    // Test 4.
+    // Non-square sparse matrix multiplication test.
+    std::map<std::pair<int, int>, double> map1, map2;
+        int N1 = 200;
+        int N2 = 1000;
+        int N3 = 100;
+        int entries = 5000;
+        while(entries--) {
+            map1[{rand() % N1, rand() % N2}] = rand() % 1000;
+            map2[{rand() % N2, rand() % N3}] = rand() % 1000;
+        }
+        SparseMatrix mat1(std::vector<std::pair<std::pair<int, int>, double> > (map1.begin(), map1.end()), N1, N2);
+        SparseMatrix mat2(std::vector<std::pair<std::pair<int, int>, double> > (map2.begin(), map2.end()), N2, N3);
+        assert(mat1 * mat2 == (mat1.toDenseMatrix() * mat2.toDenseMatrix()).toSparseMatrix());
 }
 
 void testTranspose() {
