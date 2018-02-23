@@ -3,10 +3,34 @@
 #include <assert.h>
 #include <set>
 
+// This implements the algorithm describe in 
+// "AGGREGATION-BASED ALGEBRAIC MULTI-GRID FOR CONVECTION DIFFUSION EQUATIONS".
+// By Yvan Notay
+
 namespace AGMG {
 
-    SparseMatrix compressMatrix(SparseMatrix A, std::vector<std::set<int> > g_vec) {
-        SparseMatrix P(std::vector<SparseVector> (A.row_size(), SparseVector(g_vec.size(), {})), A.row_size(), g_vec.size());
+    /*
+        compress_matrix
+        Input:
+            SparseMatrix A
+            It's the matrix we want to compress.
+
+            std::vector<std::set<int> > g_vec
+            It contains the sets G1 to Gnc.
+            It's required to create the matrices P transpose (restriction matrix)
+            and P (prolongation matrix), which is required to return
+            P(transpose) * A * P
+        Output:
+            SparseMatrix result
+            It's the resultant matrix returned via P(transpose) * A * P
+    */
+
+    SparseMatrix compress_matrix(SparseMatrix A,
+        std::vector<std::set<int> > g_vec) {
+
+        SparseMatrix P(std::vector<SparseVector> (A.row_size(), 
+                SparseVector(g_vec.size(), {})), A.row_size(), g_vec.size());
+
         for(int j = 0; j < g_vec.size(); j++) {
             for(int i : g_vec[j]) {
                 assert(i < A.row_size());
@@ -19,6 +43,29 @@ namespace AGMG {
         SparseMatrix X = P.transpose();
         return P.transpose() * A * P;
     }
+
+    /*
+        initial_pairwise_aggregation
+        Input:
+            int n
+            The dimension of the matrix.
+
+            SparseMatrix A
+            The n x n matrix A.
+
+            double ktg
+            Some tuning parameter given in the research paper.
+        Output:
+            int result.first 
+            nc. Size of the compressed coarse matrix.
+
+            std::set<int> result.second.first
+            g0. It contains the set g0. Refer to paper for more details.
+
+            std::vector<std::set<int> result.second.second
+            g_vec. It contains the set g1 to gnc.
+            Note that I am returning g0 seperately.
+    */
 
     std::pair<int, std::pair<std::set<int>, std::vector<std::set<int> > > >
     initial_pairwise_aggregation
@@ -117,6 +164,33 @@ namespace AGMG {
         return {nc, {g0, g_vec}};
     }
 
+    /*
+        further_pairwise_aggregation
+        Input:
+            int n
+            The dimension of the square SparseMatrix which is the next input.
+
+            SparseMatrix A
+            The input n x n matrix A.
+
+            double ktg
+            Tuning parameter ktg, refer to the paper for more details.
+
+            int nc_bar
+            The tentative coarse matrix size.
+
+            std::vector<std::set<int> > gk_bar
+            The tentative groupings g1 to g_nc_bar
+
+            SparseMatrix A_bar
+            The tentative coarse grid matrix.
+        Output:
+            int result.first
+            nc. Size of the coarse grid matrix.
+
+            std::vector<std::set<int> > result.second
+            g_vec. Groups g_1 to g_nc.
+    */
 
     std::pair<int, std::vector<std::set<int> > >
     further_pairwise_aggregation 
@@ -190,6 +264,37 @@ namespace AGMG {
         return {nc, g_vec};
     }
 
+    /*
+        multiple_pairwise_aggregation
+        Input:
+            int n
+            Size of the input square sparse matrix A.
+
+            SparseMatrix A
+            The n x n input square sparse matrix A.
+
+            double ktg
+            Some turning parameter given in the paper. Refer to paper.
+
+            int npass.
+            The number of iterations we want to run on the matrix.
+            The first pass applies the initial_pairwise_aggregation.
+            The remaining npass - 1 passes applies the further pairwise
+            aggregation on the output of the previous pass.
+
+            double tou
+            Some tuning paramter given in the paper. The coarsening factor.
+            Refer to paper for more details.
+        Output:
+            int result.first.first
+            nc. Size of the coarse grid matrix.
+
+            std::vector<std::set<int> > result.first.second
+            g_vec. Aggregates/Groups of the last iteration g_1 to g_nc.
+
+            SparseMatrix> result.second
+            Ac. The coarse grid matrix of size nc x nc.
+    */
 
     std::pair<std::pair<int, std::vector<std::set<int> > >, SparseMatrix> 
     multiple_pairwise_aggregation 
@@ -200,14 +305,14 @@ namespace AGMG {
         std::pair<int, std::vector<std::set<int> > > last_result = 
             {first_result.first, first_result.second.second};
 
-        SparseMatrix last_A = compressMatrix(A, last_result.second);
+        SparseMatrix last_A = compress_matrix(A, last_result.second);
 
         int non_zero_in_A = A.nnz();
 
         for(int s = 2; s <= npass; s++) {
              last_result = further_pairwise_aggregation(
                 n, A, ktg, last_result.first, last_result.second, last_A);
-            last_A = compressMatrix(A, last_result.second);
+            last_A = compress_matrix(A, last_result.second);
             if(last_A.nnz() <= (non_zero_in_A / tou)) break;
         }
         return { { last_result.first, last_result.second}, last_A};
