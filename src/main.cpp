@@ -8,7 +8,6 @@ struct ${$(){
 }}$;
 
 
-
 #ifdef TRACE
   #define trace(...) __f(#__VA_ARGS__, __VA_ARGS__)
   template <typename Arg1>
@@ -25,22 +24,13 @@ struct ${$(){
 
 int main() {
 
-  SparseMatrix S = DenseMatrix({
-    {1, 0, 0, 2},
-    {0, 1, 0, 0},
-    {2, 0, 1, 0},
-    {0, 2, 0, 1},
-  }).toSparseMatrix();
-
-  std::string inp_file("tests/sparse_matrix.txt");
+  
+  std::string inp_file("../matrices/poisson10000.txt");
   SparseMatrix T(inp_file);
-  cout << T.row_size() << endl;
-  assert(T.row_size() == 4);
-  assert(T.col_size() == 4);
-  T.print();
-
-  auto result = AGMG::multiple_pairwise_aggregation(S.row_size(), S, 3, 0, 1);
-  cout << result.first.first << endl;
-  result.second.print();
+  
+  assert(T.row_size() == 10000);
+  assert(T.col_size() == 10000);
+  T = T * T;
+  
   return 0;
 }

@@ -30,7 +30,6 @@ SparseMatrix::SparseMatrix(std::string s) {
     }
     int _rows, _cols, _nnz;
     fin >> _rows >> _cols >> _nnz;
-    std::cout << _rows << " " << _cols << " " << _nnz << std::endl;
 
     std::vector<std::pair<std::pair<int, int>, double> > _data;
     for(int i = 0; i < _nnz; i++) {
