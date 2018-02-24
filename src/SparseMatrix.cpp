@@ -100,7 +100,9 @@ SparseMatrix SparseMatrix::operator * (SparseMatrix matrix) {
     std::vector<std::pair<std::pair<int, int>, double> > new_data;
     for(int i = 0; i < rows; i++) {
         for(int j = 0; j < matrix.rows; j++) {
-            new_data.push_back({{i, j}, (*this)[i] * matrix[j]});
+            double temp = (*this)[i] * matrix[j];
+            if(temp != 0)
+                new_data.push_back({{i, j}, temp});
         }
     }
     return SparseMatrix(new_data, rows, matrix.rows);
