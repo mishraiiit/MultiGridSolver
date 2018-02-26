@@ -9,6 +9,23 @@
 
 namespace AGMG {
 
+
+    SparseMatrix get_prolongation_matrix(SparseMatrix & A,
+        std::vector<std::set<int> > & g_vec) {
+        SparseMatrix P(std::vector<SparseVector> (A.row_size(), 
+            SparseVector(g_vec.size(), {})), A.row_size(), g_vec.size());
+
+        for(int j = 0; j < g_vec.size(); j++) {
+            for(int i : g_vec[j]) {
+                assert(i < A.row_size());
+                assert(j < g_vec.size());
+                P[i].size = g_vec.size();
+                P[i].getData().push_back({j, 1});
+            }
+        }
+        return P;
+    }
+
     /*
         compress_matrix
         Input:
@@ -28,19 +45,8 @@ namespace AGMG {
     SparseMatrix compress_matrix(SparseMatrix A,
         std::vector<std::set<int> > g_vec) {
 
-        SparseMatrix P(std::vector<SparseVector> (A.row_size(), 
-                SparseVector(g_vec.size(), {})), A.row_size(), g_vec.size());
-
-        for(int j = 0; j < g_vec.size(); j++) {
-            for(int i : g_vec[j]) {
-                assert(i < A.row_size());
-                assert(j < g_vec.size());
-                P[i].size = g_vec.size();
-                P[i].getData().push_back({j, 1});
-            }
-        }
+        SparseMatrix P = get_prolongation_matrix(A, g_vec);
         P.changed();
-        SparseMatrix X = P.transpose();
         return P.transpose() * A * P;
     }
 
