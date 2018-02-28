@@ -7,8 +7,10 @@ nrows = gridx*gridy;
 
 b = rand(nrows,1);
 
-load pro_matrix.dat
+load pro_matrix.dat;
+load random_pro.dat
 P = spconvert(pro_matrix);
+P = spconvert(random_pro);
 %[P, ind] = agtwolev(A, 2, 1);
 
 Ac = P' * A * P;
