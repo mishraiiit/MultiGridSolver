@@ -318,13 +318,14 @@ namespace AGMG {
             {first_result.first, first_result.second.second};
 
         SparseMatrix last_A = compress_matrix(A, last_result.second);
-
+        std::cerr << "Round 1 completed. Size: " << last_result.first << std::endl;
         int non_zero_in_A = A.nnz();
 
         for(int s = 2; s <= npass; s++) {
              last_result = further_pairwise_aggregation(
                 n, A, ktg, last_result.first, last_result.second, last_A);
             last_A = compress_matrix(A, last_result.second);
+            std::cerr << "Round " << s << " completed. Size: " << last_result.first << std::endl;
             if(last_A.nnz() <= (non_zero_in_A / tou)) break;
         }
         return { { last_result.first, last_result.second}, last_A};
