@@ -8,9 +8,8 @@ nrows = gridx*gridy;
 b = rand(nrows,1);
 
 load pro_matrix.dat;
-load random_pro.dat
 P = spconvert(pro_matrix);
-P = spconvert(random_pro);
+size(P)
 %[P, ind] = agtwolev(A, 2, 1);
 
 Ac = P' * A * P;
@@ -18,8 +17,8 @@ Ac = P' * A * P;
 setup.type = 'nofill';
 [L,U] = ilu(A,setup);
 
-precon_solve = @(x) ( P * (Ac \ (P'*x)) + (diag(diag(A)) \ x));
-%precon_solve = @(x) ( P * (Ac \ (P'*x)) + (U \ (L \ x)) );
+%precon_solve = @(x) ( P * (Ac \ (P'*x)) + (diag(diag(A)) \ x));
+precon_solve = @(x) ( P * (Ac \ (P'*x)) + (U \ (L \ x)) );
 
 maxit = 1000;
 tol = 1e-10;
