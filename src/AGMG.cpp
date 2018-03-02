@@ -165,7 +165,6 @@ namespace AGMG {
                 u.erase(i);
             }
         }
-
         assert(nc == g_vec.size());
         return {nc, {g0, g_vec}};
     }
@@ -234,7 +233,6 @@ namespace AGMG {
              (A_bar[i][i] - si_bar[i]))  + (1 / (A_bar[j][j] - si_bar[j])));
             return num / den;
         };
-
         while(!u.empty()) {
             int i = * u.begin();
             std::set<int> T;
@@ -272,6 +270,7 @@ namespace AGMG {
                 u.erase(i);
             }
         }
+        
         assert(nc == g_vec.size());
         return {nc, g_vec};
     }
