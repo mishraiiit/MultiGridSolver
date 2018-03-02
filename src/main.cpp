@@ -31,7 +31,7 @@ int main() {
   assert(T.row_size() == 10000);
   assert(T.col_size() == 10000);
 
-  auto result = AGMG::multiple_pairwise_aggregation(T.row_size(), T, 8, 6, 1000000);
+  auto result = AGMG::multiple_pairwise_aggregation(T.row_size(), T, 8, 10, 1000000000);
   cout << T.row_size() << " " << result.first.first << endl;
   auto pro_matrix = AGMG::get_prolongation_matrix(T, result.first.second);
   for(int  i = 0; i < pro_matrix.row_size(); i++) {
