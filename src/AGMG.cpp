@@ -239,6 +239,7 @@ namespace AGMG {
             int i = * u.begin();
             std::set<int> T;
             for(int j = 0; j < nc_bar; j++) {
+            	if(!u.count(j)) continue;
                 double mu_ij_val = mu_barij(i, j);
                 if(A_bar[i][j] != 0 && ((A_bar[i][i] - si_bar[i] + A_bar[j][j] -\
                  si_bar[j]) >= 0) && (0 < mu_ij_val && mu_ij_val <= ktg)) {
@@ -246,6 +247,7 @@ namespace AGMG {
                 }
             }
             nc = nc + 1;
+            up : ;
             if(!T.empty()) {
                 int best_j = * T.begin();
                 double best_mu_ij = mu_barij(i, best_j);
@@ -256,11 +258,14 @@ namespace AGMG {
                         best_j = j;
                     }
                 }
-                std::set<int> f = gk_bar[i];
-                std::set<int> s = gk_bar[best_j];
-                g_vec.push_back(merge_sets(f, s));
-                u.erase(i);
-                u.erase(best_j);
+                if(best_mu_ij <= ktg) {
+	                g_vec.push_back(merge_sets(gk_bar[i], gk_bar[best_j]));
+	                u.erase(i);
+	                u.erase(best_j);
+                } else {
+                    T.erase(best_j);
+                    goto up;
+                }
             } else {
                 g_vec.push_back(gk_bar[i]);
                 u.erase(i);
