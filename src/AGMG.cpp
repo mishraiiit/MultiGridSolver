@@ -258,13 +258,14 @@ namespace AGMG {
                         best_j = j;
                     }
                 }
+                // DOUBT
                 if(best_mu_ij <= ktg) {
 	                g_vec.push_back(merge_sets(gk_bar[i], gk_bar[best_j]));
 	                u.erase(i);
 	                u.erase(best_j);
                 } else {
-                    T.erase(best_j);
-                    goto up;
+                    g_vec.push_back(gk_bar[i]);
+                	u.erase(i);
                 }
             } else {
                 g_vec.push_back(gk_bar[i]);
