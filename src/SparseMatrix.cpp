@@ -157,13 +157,21 @@ size_t SparseMatrix::col_size() {
 
 SparseMatrix * SparseMatrix::computeTranspose() {
     std::vector<std::pair<std::pair<int, int>, double> > new_data;
+    std::vector<std::vector<std::pair<int, double> > > buckets(cols);
+
     for(int i = 0; i < data.size(); i++) {
         std::vector<std::pair<int, double> > & row_data = data[i].getData();
         for(std::pair<int, double> elem : row_data) {
-            new_data.push_back({{elem.first, i}, elem.second});
+            buckets[elem.first].push_back({i, elem.second});
         }
     }
-    sort(new_data.begin(), new_data.end());
+
+    for(int i = 0; i < cols; i++) {
+        for(std::pair<int, double> elem : buckets[i]) {
+            new_data.push_back({{i, elem.first}, elem.second});
+        }
+    }
+    
     return new SparseMatrix(new_data, cols, rows, this);
 }
 

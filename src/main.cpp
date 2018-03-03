@@ -25,13 +25,13 @@ struct ${$(){
 int main() {
 
   
-  std::string inp_file("../matrices/poisson10000.txt");
+  std::string inp_file("../matrices/matvf3dSky30.mtx");
   SparseMatrix T(inp_file);
   
-  assert(T.row_size() == 10000);
-  assert(T.col_size() == 10000);
+  assert(T.row_size() == 27000);
+  assert(T.col_size() == 27000);
 
-  auto result = AGMG::multiple_pairwise_aggregation(T.row_size(), T, 8, 10, 100000000);
+  auto result = AGMG::multiple_pairwise_aggregation(T.row_size(), T, 8, 2, 4);
   cout << T.row_size() << " " << result.first.first << endl;
   auto pro_matrix = AGMG::get_prolongation_matrix(T, result.first.second);
   for(int  i = 0; i < pro_matrix.row_size(); i++) {
