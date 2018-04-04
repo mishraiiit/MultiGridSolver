@@ -2,11 +2,6 @@
 #include "AGMG.cpp"
 #define ll long long int
 using namespace std;
-struct ${$(){
-    ios_base::sync_with_stdio(0);cin.tie(0);
-    cout << fixed << setprecision(9);
-}}$;
-
 
 #ifdef TRACE
   #define trace(...) __f(#__VA_ARGS__, __VA_ARGS__)
@@ -25,11 +20,11 @@ struct ${$(){
 int main() {
 
   
-  std::string inp_file("../matrices/matvf3dSky30.mtx");
+  std::string inp_file("../matrices/poisson10000.txt");
   SparseMatrix T(inp_file);
   
-  assert(T.row_size() == 27000);
-  assert(T.col_size() == 27000);
+  assert(T.row_size() == 10000);
+  assert(T.col_size() == 10000);
 
   auto result = AGMG::multiple_pairwise_aggregation(T.row_size(), T, 8, 2, 4);
   cout << T.row_size() << " " << result.first.first << endl;

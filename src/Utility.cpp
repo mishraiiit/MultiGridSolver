@@ -1,4 +1,5 @@
 #include "Utility.h"
+#include <algorithm>
 
 std::vector<std::pair<int, std::pair<double, double> > > union_list(std::vector<std::pair<int, double> > arg1, std::vector<std::pair<int, double> > arg2) {
     std::vector< std::pair<int, std::pair<double, double> > > result; 
@@ -44,9 +45,8 @@ std::vector<std::pair<int, std::pair<double, double> > > intersection_list(std::
     return result;
 }
 
-std::set<int> merge_sets(std::set<int> arg1, std::set<int> arg2) {
-    for(int vec : arg2) {
-        arg1.insert(vec);
-    }
-    return arg1;
+std::vector<int> merge_sets(std::vector<int> arg1, std::vector<int> arg2) {
+    std::vector<int> result(arg1.size() + arg2.size());
+    std::merge(arg1.begin(), arg1.end(), arg2.begin(), arg2.end(), result.begin());
+    return result;
 }
