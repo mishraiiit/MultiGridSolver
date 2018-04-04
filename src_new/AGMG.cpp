@@ -193,7 +193,6 @@ namespace AGMG {
                 in_u[best_j] = false;
             } else {
                 g_vec.push_back({i});
-                std::cerr << i << std::endl;
                 in_u[i] = false;
             }
         }

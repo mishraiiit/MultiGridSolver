@@ -98,6 +98,7 @@ namespace AGMG {
             }
         }
 
+
         /* 
             Initialized nc to 0.
         */
@@ -139,8 +140,8 @@ namespace AGMG {
                 if(!in_u[j]) continue;
                 if((j != i) && (A[i][j] != 0)) {
                     assert(i < j);
-                    double si = - A.getRowColSum(i);
-                    double sj = - A.getRowColSum(j);
+                    double si = s[i];
+                    double sj = s[j];
                     if(A[i][i] - si + A[j][j] - sj >= 0) {
                         // Finding the best j.
                         double current_mu_ij = mu(i, j);
@@ -158,7 +159,6 @@ namespace AGMG {
                 in_u[best_j] = false;
             } else {
                 g_vec.push_back({i});
-                std::cerr << i << std::endl;
                 in_u[i] = false;
             }
         }
@@ -258,7 +258,6 @@ namespace AGMG {
                 g_vec.push_back(gk_bar[i]);
                 in_u[i] = false;
             }
-
         }
         
         assert(nc == g_vec.size());

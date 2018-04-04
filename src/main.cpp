@@ -26,14 +26,25 @@ int main() {
   assert(T.row_size() == 10000);
   assert(T.col_size() == 10000);
 
+  // auto result = AGMG::multiple_pairwise_aggregation(T.row_size(), T, 8, 2, 4);
+  // cout << T.row_size() << " " << result.first.first << endl;
+  // auto pro_matrix = AGMG::get_prolongation_matrix(T, result.first.second);
+  // for(int  i = 0; i < pro_matrix.row_size(); i++) {
+  //   auto & p = pro_matrix[i].getData();
+  //   for(auto g : p) {
+  //     cout << i+1 << " " << g.first + 1 << " " << g.second << endl;
+  //   }
+  // }
+
   auto result = AGMG::multiple_pairwise_aggregation(T.row_size(), T, 8, 2, 4);
-  cout << T.row_size() << " " << result.first.first << endl;
+  //cout << T.row_size() << " " << result.first.first << endl;
   auto pro_matrix = AGMG::get_prolongation_matrix(T, result.first.second);
   for(int  i = 0; i < pro_matrix.row_size(); i++) {
     auto & p = pro_matrix[i].getData();
     for(auto g : p) {
-      cout << i+1 << " " << g.first + 1 << " " << g.second << endl;
+      cout << (i/100)+1 << " " << (i%100)+1 << " " << g.first << endl;
     }
   }
+
   return 0;
 }
