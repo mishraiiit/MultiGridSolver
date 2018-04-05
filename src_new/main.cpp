@@ -9,13 +9,33 @@ using namespace Eigen;
 
 typedef SparseMatrix<double, RowMajor> SMatrix;
 
-int main() {
+int main(int argc, char * argv[]) {
 
-	SMatrix T = readMatrix("../matrices/CSky3d30.mtx");
-	
-  auto result = AGMG::multiple_pairwise_aggregation(T.rows(), T, 8, 2, 4);
+  string matrixname;
+  double ktg;
+  int npass;
+  double tou;
+  
+  if(argc != 5) {
+    printf("Invalid arguments.\n");
+    printf("First argument should be matrix file in .mtx format.\n");
+    printf("Second argument should be the parameter ktg, default value is 8.\n");
+    printf("Third argument should be the parameter npass, default value is 2.\n");
+    printf("Fourth argument should be the parameter tou, default value is 4.\n");
+    exit(1);
+  }
+
+  matrixname = argv[1];
+  ktg = stod(argv[2]);
+  npass = stoi(argv[3]);
+  tou = stod(argv[4]);
+
+
+  SMatrix T = readMatrix(string("../matrices/") + matrixname + string(".mtx"));
+  cerr << ktg << " " << npass << " " << tou << endl;
+  auto result = AGMG::multiple_pairwise_aggregation(T.rows(), T, ktg, npass, tou);
   auto pro_matrix = AGMG::get_prolongation_matrix(T, result.first.second);
-  writeMatrix("../matrices/CSky3d30promatrix_reduced.mtx", pro_matrix);
+  writeMatrix(string("../matrices/") + matrixname + string("promatrix_reduced.mtx"), pro_matrix);
   // cout << T.rows() << " " << result.first.first << endl;
   //  auto pro_matrix = AGMG::get_prolongation_matrix(T, result.first.second);
     

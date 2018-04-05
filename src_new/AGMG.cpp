@@ -155,6 +155,19 @@ namespace AGMG {
 
         SMatrix A_trans = A.transpose();
 
+        vector<vector<int> > reverse_adj(n);
+        for(int i = 0; i < n; i++) {
+            reverse_adj[i] = getNeighbours(i, A_trans);
+        }
+
+        vector<vector<int> > cmk_adj(n);
+        for(int i : cmk) {
+            for(int j : reverse_adj[i]) {
+                cmk_adj[j].push_back(i);
+            }
+        }
+
+
         std::vector<std::vector<int> > g_vec;
 
         assert(n == A.rows());
@@ -220,8 +233,7 @@ namespace AGMG {
                 return num / den;
             };
 
-            for(int j_index = i_index + 1; j_index < n; j_index++) {
-                int j = cmk[j_index];
+            for(int j : cmk_adj[i]) {
                 if(!in_u[j]) continue;
                 if((j != i) && (A.coeff(i, j) != 0)) {
                     assert(i < j);
@@ -264,6 +276,18 @@ namespace AGMG {
 
         SMatrix A_bar_trans = A_bar.transpose();
 
+        vector<vector<int> > reverse_adj(nc_bar);
+        for(int i = 0; i < nc_bar; i++) {
+            reverse_adj[i] = getNeighbours(i, A_bar_trans);
+        }
+
+        vector<vector<int> > cmk_adj(nc_bar);
+        for(int i : cmk) {
+            for(int j : reverse_adj[i]) {
+                cmk_adj[j].push_back(i);
+            }
+        }
+
         bool * in_u = new bool[nc_bar];
 
         /* Initialization part of this routine.  */
@@ -294,8 +318,7 @@ namespace AGMG {
                 return num / den;
             };
 
-            for(int j_index = i_index + 1; j_index < nc_bar; j_index++) {
-                int j = cmk[j_index];
+            for(int j : cmk_adj[i]) {
                 if(!in_u[j]) continue;
                 if((j != i) && (A_bar.coeff(i, j) != 0)) {
                     double si = si_bar[i];

@@ -1,84 +1,163 @@
-#include "SparseMatrix.h"
-#include "Utility.h"
-#include <assert.h>
-#include <vector>
+#include <iostream>
+#include <typeinfo>
+#include <Eigen/Sparse>
+#include <bits/stdc++.h>
+#include <deque>
+using namespace std;
+using namespace Eigen;
 
-// This implements the algorithm describe in 
-// "AGGREGATION-BASED ALGEBRAIC MULTI-GRID FOR CONVECTION DIFFUSION EQUATIONS".
-// By Yvan Notay
+typedef SparseMatrix<double, RowMajor> SMatrix;
+
 
 namespace AGMG {
 
-
-    SparseMatrix get_prolongation_matrix(SparseMatrix & A,
-        std::vector<std::vector<int> > & g_vec) {
-        SparseMatrix P(std::vector<SparseVector> (A.row_size(), 
-            SparseVector(g_vec.size(), {})), A.row_size(), g_vec.size());
-
-        for(int j = 0; j < g_vec.size(); j++) {
-            for(int i : g_vec[j]) {
-                assert(i < A.row_size());
-                assert(j < g_vec.size());
-                P[i].size = g_vec.size();
-                P[i].getData().push_back({j, 1});
+    vector<int> getNeighbours(int u, const SMatrix & adj) {
+        vector<int> result;
+        SparseVector<double> rowvec = adj.row(u);
+        for(SparseVector<double>::InnerIterator i(rowvec); i; ++i) {
+            if(i.value() != 0) {
+                result.push_back(i.index());
             }
         }
-        return P;
+        return result;
     }
 
-    /*
-        compress_matrix
-        Input:
-            SparseMatrix A
-            It's the matrix we want to compress.
+    vector<int> getCMKOrdering(int n, const SMatrix & adj) {
+        vector<int> order;
+        vector<bool> visited(n, false);
+        deque<int> q;
+        int start = -1;
 
-            std::vector<std::vector<int> > g_vec
-            It contains the sets G1 to Gnc.
-            It's required to create the matrices P transpose (restriction matrix)
-            and P (prolongation matrix), which is required to return
-            P(transpose) * A * P
-        Output:
-            SparseMatrix result
-            It's the resultant matrix returned via P(transpose) * A * P
-    */
+        vector<int> mini;
 
-    SparseMatrix compress_matrix(SparseMatrix A,
+        for(int i = 0; i < n; i++) {
+            if(start == -1 || adj.row(i).nonZeros() < adj.row(start).nonZeros()) {
+                start = i;
+            }
+        }
+
+        visited[start] = true;
+        q.push_back(start);
+        order.push_back(start);
+
+        while(!q.empty()) {
+            int u = q.front();
+            q.pop_front();
+            vector<int> ne = getNeighbours(u, adj);
+            for(int v : ne) {
+                if(!visited[v]) {
+                    visited[v] = true;
+                    q.push_back(v);
+                    order.push_back(v);
+                }
+            }
+        }
+
+        assert(order.size() == n);
+        return order;
+    }
+
+    std::vector<int> merge_sets(std::vector<int> arg1, std::vector<int> arg2) {
+        std::vector<int> result(arg1.size() + arg2.size());
+        std::merge(arg1.begin(), arg1.end(), arg2.begin(), arg2.end(), result.begin());
+        return result;
+    }
+
+    SMatrix get_prolongation_matrix(SMatrix & A,
+        std::vector<std::vector<int> > & g_vec) {
+        int n = A.rows();
+        SMatrix S(n, g_vec.size());
+        vector<int> group_id(n, -1);
+        for(int j = 0; j < g_vec.size(); j++) {
+            for(int i : g_vec[j]) {
+                group_id[i] = j;
+            }
+        }
+        for(int i = 0; i < n; i++) {
+            if(group_id[i] != -1)
+                S.insert(i, group_id[i]) = 1;
+        }
+        return S;
+    }
+
+    SMatrix compress_matrix(SMatrix A,
         std::vector<std::vector<int> > g_vec) {
-
-        SparseMatrix P = get_prolongation_matrix(A, g_vec);
-        P.changed();
+        SMatrix P = get_prolongation_matrix(A, g_vec);
         return P.transpose() * A * P;
     }
 
-    /*
-        initial_pairwise_aggregation
-        Input:
-            int n
-            The dimension of the matrix.
+    double abs_row_col_sum(const SMatrix & A, const SMatrix & A_trans, int i) {
+        SparseVector<double> row = A.row(i);
+        SparseVector<double> col = A_trans.row(i);
 
-            SparseMatrix A
-            The n x n matrix A.
+        SparseVector<double>::InnerIterator row_i(row);
+        SparseVector<double>::InnerIterator col_i(col);
 
-            double ktg
-            Some tuning parameter given in the research paper.
-        Output:
-            int result.first 
-            nc. Size of the compressed coarse matrix.
+        double ans = 0.0;
+        while((row_i) && (col_i)) {
+            if(row_i.index() == col_i.index()) {
+                ans = ans + abs((row_i.value() + col_i.value()) / 2);
+                ++row_i;
+                ++col_i;
+            } else if(row_i.index() < col_i.index()) {
+                ans = ans + abs((row_i.value()) / 2);
+                ++row_i;
+            } else {
+                ans = ans + abs((col_i.value()) / 2);
+                ++col_i;
+            }
+        }
 
-            std::vector<int> result.second.first
-            g0. It contains the set g0. Refer to paper for more details.
+        while(row_i) {
+            ans = ans + abs((row_i.value()) / 2);
+            ++row_i;
+        }
 
-            std::vector<std::vector<int> result.second.second
-            g_vec. It contains the set g1 to gnc.
-            Note that I am returning g0 seperately.
-    */
+        while(col_i) {
+            ans = ans + abs((col_i.value()) / 2);
+            ++col_i;
+        }
+
+        ans = ans - abs(A.coeff(i, i));
+
+        // double other = 0.0;
+        // for(int j = 0; j < A.rows(); j++) {
+        //     if(i == j) continue;
+        //     other += abs((A.coeff(i, j) + A.coeff(j, i)) / 2.0);
+        // }
+
+        // assert(ans == other);
+        return ans;
+    }
+
+    double row_col_sum(const SMatrix & A, const SMatrix & A_trans, int i) {
+        SparseVector<double> row = A.row(i);
+        SparseVector<double> col = A_trans.row(i);
+
+        // double other = 0.0;
+        // for(int j = 0; j < A.rows(); j++) {
+        //     if(i == j) continue;
+        //     other += A.coeff(i, j) + A.coeff(j, i);
+        // }
+        // other = -other / 2;
+
+        double ans = - (row.sum() + col.sum()) / 2;
+        ans += A.coeff(i, i);
+        // assert(other == ans);
+        return ans;
+    }
 
     std::pair<int, std::pair<std::vector<int>, std::vector<std::vector<int> > > >
     initial_pairwise_aggregation
-    (int n, SparseMatrix & A, double ktg) {
+    (int n, const SMatrix & A, double ktg) {
+
+        vector<int> cmk = getCMKOrdering(n, A);
+
+        SMatrix A_trans = A.transpose();
+
         std::vector<std::vector<int> > g_vec;
 
-        assert(n == A.row_size());
+        assert(n == A.rows());
 
         bool * in_u = new bool[n];
         for(int i = 0; i < n; i++) {
@@ -90,14 +169,17 @@ namespace AGMG {
         /*
             Compute set G.
         */
+
         std::vector<int> g0;
         for(int i = 0; i < n; i++) {
-            if(A[i][i] >= (ktg / (ktg - 2)) * A.getRowColAbsSum(i)) {
+            if(A.coeff(i, i) >= (ktg / (ktg - 2)) * abs_row_col_sum(A, A_trans, i)) {
                 g0.push_back(i);
+                // std::cerr << "g0 contains " << i << std::endl;
                 in_u[i] = false;
             }
         }
 
+        // std::cerr << "Size of g0 " << g0.size() << std::endl;
 
         /* 
             Initialized nc to 0.
@@ -107,14 +189,16 @@ namespace AGMG {
         /*
             Compute si vector.
         */
+        // DOUBT
         std::vector<double> s(n);
         for(int i = 0; i < n; i++) {
-            s[i] = - A.getRowColSum(i);
+            s[i] = row_col_sum(A, A_trans, i);
         }
 
         /* Iteration part of this routine now. */
 
-        for(int i = 0; i < n; i++) {
+        for(int i_index = 0; i_index < n; i_index++) {
+            int i = cmk[i_index];
             if(!in_u[i]) continue;
             /* The value of j for which mu ({i, j}) is minimized.
                best_mu_ij would store the minimum mu ({i, j}) value.
@@ -130,19 +214,20 @@ namespace AGMG {
             auto mu = [&A, &s] (int i, int j) {
                 double si = s[i];
                 double sj = s[j];
-                double num = 2 / (1 / A[i][i] + 1 / A[j][j]);   
-                double den = (- (A[i][j] + A[j][i]) / 2) + 1 / (1 / \
-                (A[i][i] - si) + 1 / (A[j][j] - sj));
+                double num = 2 / (1 / A.coeff(i, i) + 1 / A.coeff(j, j));   
+                double den = (- (A.coeff(i, j) + A.coeff(j, i)) / 2) + 1 / (1 / \
+                (A.coeff(i, i) - si) + 1 / (A.coeff(j, j) - sj));
                 return num / den;
             };
 
-            for(int j = i + 1; j < n; j++) {
+            for(int j_index = i_index + 1; j_index < n; j_index++) {
+                int j = cmk[j_index];
                 if(!in_u[j]) continue;
-                if((j != i) && (A[i][j] != 0)) {
+                if((j != i) && (A.coeff(i, j) != 0)) {
                     assert(i < j);
                     double si = s[i];
                     double sj = s[j];
-                    if(A[i][i] - si + A[j][j] - sj >= 0) {
+                    if(A.coeff(i, i) - si + A.coeff(j, j) - sj >= 0) {
                         // Finding the best j.
                         double current_mu_ij = mu(i, j);
                         if((best_j == -1) || (current_mu_ij < best_mu_ij)) {
@@ -155,6 +240,7 @@ namespace AGMG {
             nc = nc + 1;
             if((best_j != -1) && (best_mu_ij <= ktg)) {
                 g_vec.push_back({i, best_j});
+                assert(A.coeff(i, best_j) != 0);
                 in_u[i] = false;
                 in_u[best_j] = false;
             } else {
@@ -167,40 +253,16 @@ namespace AGMG {
         return {nc, {g0, g_vec}};
     }
 
-    /*
-        further_pairwise_aggregation
-        Input:
-            int n
-            The dimension of the square SparseMatrix which is the next input.
-
-            SparseMatrix A
-            The input n x n matrix A.
-
-            double ktg
-            Tuning parameter ktg, refer to the paper for more details.
-
-            int nc_bar
-            The tentative coarse matrix size.
-
-            std::vector<std::vector<int> > gk_bar
-            The tentative groupings g1 to g_nc_bar
-
-            SparseMatrix A_bar
-            The tentative coarse grid matrix.
-        Output:
-            int result.first
-            nc. Size of the coarse grid matrix.
-
-            std::vector<std::vector<int> > result.second
-            g_vec. Groups g_1 to g_nc.
-    */
-
-    std::pair<int, std::vector<std::vector<int> > >
+     std::pair<int, std::vector<std::vector<int> > >
     further_pairwise_aggregation 
-    (int n, SparseMatrix & A, double ktg, int nc_bar,
-      std::vector<std::vector<int> > gk_bar, SparseMatrix & A_bar) {
+    (int n, const SMatrix & A, double ktg, int nc_bar,
+      std::vector<std::vector<int> > gk_bar, const SMatrix & A_bar) {
         std::vector<std::vector<int> > g_vec;
         assert(gk_bar.size() == nc_bar);
+
+        vector<int> cmk = getCMKOrdering(nc_bar, A_bar);
+
+        SMatrix A_bar_trans = A_bar.transpose();
 
         bool * in_u = new bool[nc_bar];
 
@@ -215,29 +277,30 @@ namespace AGMG {
 
         std::vector<double> si_bar(nc_bar);
         for(int i = 0; i < nc_bar; i++) {
-            si_bar[i] = - A_bar.getRowColSum(i);
+            si_bar[i] = row_col_sum(A_bar, A_bar_trans, i);
         }
 
-        for(int i = 0; i < nc_bar; i++) {
-
+        for(int i_index = 0; i_index < nc_bar; i_index++) {
+            int i = cmk[i_index];
             if(!in_u[i]) continue;
 
             int best_j = -1;
             double best_mu_ij;
 
             auto mu_barij = [&A_bar, &si_bar](int i, int j) {
-                double num = 2 / ((1 / A_bar[i][i]) + (1 / A_bar[j][j]));
-                double den = (-((A_bar[i][j] + A_bar[j][i]) / 2)) + 1 / ((1 /\
-                 (A_bar[i][i] - si_bar[i]))  + (1 / (A_bar[j][j] - si_bar[j])));
+                double num = 2 / ((1 / A_bar.coeff(i, i)) + (1 / A_bar.coeff(j, j)));
+                double den = (-((A_bar.coeff(i, j) + A_bar.coeff(j, i)) / 2)) + 1 / ((1 /\
+                 (A_bar.coeff(i, i) - si_bar[i]))  + (1 / (A_bar.coeff(j, j) - si_bar[j])));
                 return num / den;
             };
 
-            for(int j = i + 1; j < nc_bar; j++) {
+            for(int j_index = i_index + 1; j_index < nc_bar; j_index++) {
+                int j = cmk[j_index];
                 if(!in_u[j]) continue;
-                if((j != i) && (A_bar[i][j] != 0)) {
+                if((j != i) && (A_bar.coeff(i, j) != 0)) {
                     double si = si_bar[i];
                     double sj = si_bar[j];
-                    if(A_bar[i][i] - si + A_bar[j][j] - sj >= 0) {
+                    if(A_bar.coeff(i, i) - si + A_bar.coeff(j, j) - sj >= 0) {
                         // Finding the best j.
                         double current_mu_ij = mu_barij(i, j);
                         if((best_j == -1) || (current_mu_ij < best_mu_ij)) {
@@ -250,14 +313,16 @@ namespace AGMG {
 
             nc = nc + 1;
 
-            if(0 <= best_mu_ij && best_mu_ij <= ktg) {
+            if((best_j != -1) && (0 <= best_mu_ij && best_mu_ij <= ktg)) {
                 g_vec.push_back(merge_sets(gk_bar[i], gk_bar[best_j]));
                 in_u[i] = false;
                 in_u[best_j] = false;
+                assert(A_bar.coeff(i, best_j) != 0);
             } else {
                 g_vec.push_back(gk_bar[i]);
                 in_u[i] = false;
             }
+
         }
         
         assert(nc == g_vec.size());
@@ -265,58 +330,27 @@ namespace AGMG {
         return {nc, g_vec};
     }
 
-    /*
-        multiple_pairwise_aggregation
-        Input:
-            int n
-            Size of the input square sparse matrix A.
-
-            SparseMatrix A
-            The n x n input square sparse matrix A.
-
-            double ktg
-            Some turning parameter given in the paper. Refer to paper.
-
-            int npass.
-            The number of iterations we want to run on the matrix.
-            The first pass applies the initial_pairwise_aggregation.
-            The remaining npass - 1 passes applies the further pairwise
-            aggregation on the output of the previous pass.
-
-            double tou
-            Some tuning paramter given in the paper. The coarsening factor.
-            Refer to paper for more details.
-        Output:
-            int result.first.first
-            nc. Size of the coarse grid matrix.
-
-            std::vector<std::set<int> > result.first.second
-            g_vec. Aggregates/Groups of the last iteration g_1 to g_nc.
-
-            SparseMatrix> result.second
-            Ac. The coarse grid matrix of size nc x nc.
-    */
-
-    std::pair<std::pair<int, std::vector<std::vector<int> > >, SparseMatrix> 
+    std::pair<std::pair<int, std::vector<std::vector<int> > >, SMatrix> 
     multiple_pairwise_aggregation 
-    (int n, SparseMatrix & A, double ktg, int npass , double tou) {
+    (int n, const SMatrix & A, double ktg, int npass , double tou) {
         std::pair<int, std::pair<std::vector<int>, std::vector<std::vector<int> > > > 
         first_result = initial_pairwise_aggregation(n, A, ktg);
         
         std::pair<int, std::vector<std::vector<int> > > last_result = 
             {first_result.first, first_result.second.second};
 
-        SparseMatrix last_A = compress_matrix(A, last_result.second);
+        SMatrix last_A = compress_matrix(A, last_result.second);
         std::cerr << "Round 1 completed. Size: " << last_result.first << std::endl;
-        int non_zero_in_A = A.nnz();
+        int non_zero_in_A = A.nonZeros();
 
         for(int s = 2; s <= npass; s++) {
              last_result = further_pairwise_aggregation(
                 n, A, ktg, last_result.first, last_result.second, last_A);
             last_A = compress_matrix(A, last_result.second);
             std::cerr << "Round " << s << " completed. Size: " << last_result.first << std::endl;
-            if(last_A.nnz() <= (non_zero_in_A / tou)) break;
+            if(last_A.nonZeros() <= (non_zero_in_A / tou)) break;
         }
         return { { last_result.first, last_result.second}, last_A};
     }
-};
+
+}
