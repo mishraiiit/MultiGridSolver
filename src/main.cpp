@@ -4,6 +4,7 @@
 #include <typeinfo>
 #include <Eigen/Sparse>
 #include <bits/stdc++.h>
+#include <chrono>
 using namespace std;
 using namespace Eigen;
 
@@ -33,8 +34,18 @@ int main(int argc, char * argv[]) {
 
   SMatrix T = readMatrix(string("../matrices/") + matrixname + string(".mtx"));
   cerr << ktg << " " << npass << " " << tou << endl;
+
+
+  auto start = std::chrono::system_clock::now();
+
   auto result = AGMG::multiple_pairwise_aggregation(T.rows(), T, ktg, npass, tou);
   auto pro_matrix = AGMG::get_prolongation_matrix(T, result.first.second);
+
+  auto end = std::chrono::system_clock::now();
+
+  std::chrono::duration<double> diff = end-start;
+  std::cout << "Time for aggregation: " << diff.count() << " s\n";
+
   writeMatrix(string("../matrices/") + matrixname + string("promatrix.mtx"), pro_matrix);
   // cout << T.rows() << " " << result.first.first << endl;
   //  auto pro_matrix = AGMG::get_prolongation_matrix(T, result.first.second);

@@ -1,0 +1,2 @@
+compile:
+	g++ -std=c++11 -avx -I ../lib/eigen main.cpp -o main

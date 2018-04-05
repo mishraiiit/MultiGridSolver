@@ -3,11 +3,11 @@ function [P ind] = agtwolev(A,l,sym,npass,kappa,checkdd,targetcf,fracnz,trspos,v
 % Compute aggregation and associated prolongation matrix according to the
 % algorithms in [1] (symmetric matrices) or [2] (general matrices) 
 %
-% [2] A. Napov and Y. Notay, An algebraic multigrid method with guaranteed
+% [1] A. Napov and Y. Notay, An algebraic multigrid method with guaranteed
 %    convergence rate, Report GANMN 10-03, Universite Libre de Bruxelles,
 %    Brussels, Belgium, 2010.
 %
-% [3] Y. Notay, Aggregation-based algebraic multigrid for convection-diffusion
+% [2] Y. Notay, Aggregation-based algebraic multigrid for convection-diffusion
 %    equations, Report GANMN 11-01, Universite Libre de Bruxelles, Brussels,
 %    Belgium, 2011.
 %

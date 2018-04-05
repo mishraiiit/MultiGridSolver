@@ -1,13 +1,16 @@
 %% 
 
-A = mmread('../../matrices/matvf3dSky30.mtx');
+A = mmread('../../matrices/matvf3dSky80.mtx');
 size(A)
 nrows = size(A, 1);
 
 b = rand(nrows,1);
 
 %P = mmread('../../matrices/matvf3dSky30promatrix.mtx');
-[P, ind] = agtwolev(A, 2, 1);
+tic
+[P, ind] = agtwolev(A, 2, 0, 2, 10);
+toc
+
 size(P)
 
 Ac = P' * A * P;
