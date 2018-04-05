@@ -6,9 +6,9 @@ nrows = size(A, 1);
 
 b = rand(nrows,1);
 
-P = mmread('../../matrices/matvf3dSky30promatrix.mtx');
+%P = mmread('../../matrices/matvf3dSky30promatrix.mtx');
+[P, ind] = agtwolev(A, 2, 1);
 size(P)
-%[P, ind] = agtwolev(A, 2, 1);
 
 Ac = P' * A * P;
 
