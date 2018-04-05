@@ -8,6 +8,15 @@ using namespace Eigen;
 
 typedef SparseMatrix<double, RowMajor> SMatrix;
 
+struct vectorint {
+    int * data;
+    int size;
+};
+
+struct vectorvectorint {
+    vectorint * data;
+    int size;
+};
 
 namespace AGMG {
 
@@ -45,19 +54,23 @@ namespace AGMG {
         return order;
     }
 
-    std::vector<int> merge_sets(std::vector<int> arg1, std::vector<int> arg2) {
-        std::vector<int> result(arg1.size() + arg2.size());
-        std::merge(arg1.begin(), arg1.end(), arg2.begin(), arg2.end(), result.begin());
+    vectorint merge_sets(vectorint arg1, vectorint arg2) {
+        vectorint result;
+        result.size = arg1.size + arg2.size;
+        result.data = new int[result.size];
+        std::merge(arg1.data, arg1.data + arg1.size, arg2.data, arg2.data + arg2.size, result.data);
         return result;
     }
 
     SMatrix get_prolongation_matrix(const SMatrix & A,
-        const std::vector<std::vector<int> > & g_vec) {
+        const std::vector<vectorint> & g_vec) {
         int n = A.rows();
         SMatrix S(n, g_vec.size());
-        vector<int> group_id(n, -1);
+        int * group_id = new int[n];
+        fill(group_id, group_id + n, -1);
         for(int j = 0; j < g_vec.size(); j++) {
-            for(int i : g_vec[j]) {
+            for(int id = 0; id < g_vec[j].size; id++) {
+                int i = g_vec[j].data[id];
                 group_id[i] = j;
             }
         }
@@ -65,11 +78,12 @@ namespace AGMG {
             if(group_id[i] != -1)
                 S.insert(i, group_id[i]) = 1;
         }
+        delete [] group_id;
         return S;
     }
 
     SMatrix compress_matrix(const SMatrix & A,
-        const std::vector<std::vector<int> > & g_vec) {
+        const std::vector<vectorint> & g_vec) {
         SMatrix P = get_prolongation_matrix(A, g_vec);
         return P.transpose() * A * P;
     }
@@ -135,7 +149,7 @@ namespace AGMG {
         return ans;
     }
 
-    std::pair<int, std::pair<std::vector<int>, std::vector<std::vector<int> > > >
+    std::pair<int, std::vector<vectorint> > 
     initial_pairwise_aggregation
     (int n, const SMatrix & A, double ktg) {
 
@@ -143,7 +157,7 @@ namespace AGMG {
 
         SMatrix A_trans = A.transpose();
 
-        std::vector<std::vector<int> > g_vec;
+        std::vector<vectorint> g_vec;
 
         assert(n == A.rows());
 
@@ -158,10 +172,8 @@ namespace AGMG {
             Compute set G.
         */
 
-        std::vector<int> g0;
         for(int i = 0; i < n; i++) {
             if(A.coeff(i, i) >= (ktg / (ktg - 2)) * abs_row_col_sum(A, A_trans, i)) {
-                g0.push_back(i);
                 // std::cerr << "g0 contains " << i << std::endl;
                 in_u[i] = false;
             }
@@ -228,26 +240,35 @@ namespace AGMG {
             }
             nc = nc + 1;
             if((best_j != -1) && (best_mu_ij <= ktg)) {
-                g_vec.push_back({i, best_j});
+                vectorint aggregate;
+                aggregate.size = 2;
+                aggregate.data = new int[2];
+                aggregate.data[0] = i;
+                aggregate.data[1] = best_j;
                 assert(A.coeff(i, best_j) != 0);
                 in_u[i] = false;
                 in_u[best_j] = false;
+                g_vec.push_back(aggregate);
             } else {
-                g_vec.push_back({i});
+                vectorint aggregate;
+                aggregate.size = 1;
+                aggregate.data = new int[1];
+                aggregate.data[0] = i;
                 in_u[i] = false;
+                g_vec.push_back(aggregate);
             }
         }
         assert(nc == g_vec.size());
         delete [] in_u;
         delete [] cmk;
-        return {nc, {g0, g_vec}};
+        return {nc, g_vec};
     }
 
-     std::pair<int, std::vector<std::vector<int> > >
+     std::pair<int, std::vector<vectorint > >
     further_pairwise_aggregation 
     (int n, const SMatrix & A, double ktg, int nc_bar,
-      std::vector<std::vector<int> > gk_bar, const SMatrix & A_bar) {
-        std::vector<std::vector<int> > g_vec;
+      std::vector<vectorint> gk_bar, const SMatrix & A_bar) {
+        std::vector<vectorint> g_vec;
         assert(gk_bar.size() == nc_bar);
 
         SMatrix A_bar_trans = A_bar.transpose();
@@ -318,14 +339,14 @@ namespace AGMG {
         return {nc, g_vec};
     }
 
-    std::pair<std::pair<int, std::vector<std::vector<int> > >, SMatrix> 
+    std::pair<std::pair<int, std::vector<vectorint> >, SMatrix> 
     multiple_pairwise_aggregation 
     (int n, const SMatrix & A, double ktg, int npass , double tou) {
-        std::pair<int, std::pair<std::vector<int>, std::vector<std::vector<int> > > > 
+        std::pair<int, std::vector<vectorint> > 
         first_result = initial_pairwise_aggregation(n, A, ktg);
         
-        std::pair<int, std::vector<std::vector<int> > > last_result = 
-            {first_result.first, first_result.second.second};
+        std::pair<int, std::vector<vectorint> > last_result = 
+            {first_result.first, first_result.second};
 
         SMatrix last_A = compress_matrix(A, last_result.second);
         std::cerr << "Round 1 completed. Size: " << last_result.first << std::endl;
