@@ -32,7 +32,7 @@ int main(int argc, char * argv[]) {
 
 
   SMatrix T = readMatrix(string("../matrices/") + matrixname + string(".mtx"));
-	
+  cerr << ktg << " " << npass << " " << tou << endl;
   auto result = AGMG::multiple_pairwise_aggregation(T.rows(), T, ktg, npass, tou);
   auto pro_matrix = AGMG::get_prolongation_matrix(T, result.first.second);
   writeMatrix(string("../matrices/") + matrixname + string("promatrix.mtx"), pro_matrix);

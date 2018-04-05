@@ -42,6 +42,7 @@ void writeMatrix(string filename, SMatrix matrix) {
     int nnz = matrix.nonZeros();
     ofstream fout;
     fout.open(filename);
+    fout << "%%MatrixMarket matrix coordinate real general \n" << endl;
     fout << rows << " " << cols << " " << nnz << endl;
     for(int i = 0; i < rows; i++) {
         SparseVector<double> row = matrix.row(i);
