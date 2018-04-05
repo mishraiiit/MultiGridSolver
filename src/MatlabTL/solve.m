@@ -1,14 +1,12 @@
 %% 
 
-gridx = 100;
-gridy = 100;
-A = gallery('poisson', gridx);
-nrows = gridx*gridy;
+A = mmread('../../matrices/matvf3dSky30.mtx');
+size(A)
+nrows = size(A, 1);
 
 b = rand(nrows,1);
 
-load pro_matrix.dat;
-P = spconvert(pro_matrix);
+P = mmread('../../matrices/matvf3dSky30promatrix.mtx');
 size(P)
 %[P, ind] = agtwolev(A, 2, 1);
 
