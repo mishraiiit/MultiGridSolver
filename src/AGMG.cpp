@@ -21,8 +21,8 @@ struct vectorvectorint {
 namespace AGMG {
 
     int * getCMKOrdering(int n, const SMatrix & adj) {
-        int * order = new int[n];
-        bool * visited = new bool[n];
+        int * order = (int *) malloc(n * sizeof(int));
+        bool * visited = (bool *) calloc(n, sizeof(bool));
         for(int i = 0; i < n; i++) {
             visited[i] = 0;
         }
@@ -50,15 +50,20 @@ namespace AGMG {
 
         assert(used == n);
         assert(added == n);
-        delete [] visited;
+        free(visited);
         return order;
     }
 
-    vectorint merge_sets(vectorint arg1, vectorint arg2) {
+    vectorint merge_sets(const vectorint & arg1, const vectorint & arg2) {
         vectorint result;
         result.size = arg1.size + arg2.size;
         result.data = new int[result.size];
-        std::merge(arg1.data, arg1.data + arg1.size, arg2.data, arg2.data + arg2.size, result.data);
+        for(int i = 0; i < arg1.size; i++) {
+            result.data[i] = arg1.data[i];
+        }
+        for(int i = 0; i < arg2.size; i++) {
+            result.data[arg1.size + i] = arg1.data[i];
+        }
         return result;
     }
 
@@ -66,8 +71,8 @@ namespace AGMG {
         const std::vector<vectorint> & g_vec) {
         int n = A.rows();
         SMatrix S(n, g_vec.size());
-        int * group_id = new int[n];
-        fill(group_id, group_id + n, -1);
+        int * group_id = (int *) malloc(n * sizeof(int));
+        memset(group_id, -1, n * sizeof(int));
         for(int j = 0; j < g_vec.size(); j++) {
             for(int id = 0; id < g_vec[j].size; id++) {
                 int i = g_vec[j].data[id];
@@ -78,7 +83,7 @@ namespace AGMG {
             if(group_id[i] != -1)
                 S.insert(i, group_id[i]) = 1;
         }
-        delete [] group_id;
+        free(group_id);
         return S;
     }
 
@@ -260,7 +265,7 @@ namespace AGMG {
         }
         assert(nc == g_vec.size());
         delete [] in_u;
-        delete [] cmk;
+        free(cmk);
         return {nc, g_vec};
     }
 
