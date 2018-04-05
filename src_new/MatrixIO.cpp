@@ -18,13 +18,21 @@ SMatrix readMatrix(string filename) {
     fin >> M >> N >> L;
     SMatrix matrix(M, N);
     // Read the data
+    vector< vector <pair<int, double> > > matrix_data(M);
     for (int l = 0; l < L; l++) {
         int m, n;
         double data;
         fin >> m >> n >> data;
-        matrix.insert(m - 1, n - 1) = data;
+        matrix_data[m - 1].push_back({n - 1, data});
+    }
+    for(int i = 0; i < M; i++) {
+        sort(matrix_data[i].begin(), matrix_data[i].end());
+        for(auto tp : matrix_data[i]) {
+            matrix.insert(i, tp.first) = tp.second;
+        }
     }
     fin.close();
+    cerr << "Read matrix from file: " << filename << endl;
     return matrix;
 }
 

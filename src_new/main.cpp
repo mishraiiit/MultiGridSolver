@@ -11,11 +11,11 @@ typedef SparseMatrix<double, RowMajor> SMatrix;
 
 int main() {
 
-	SMatrix T = readMatrix("../matrices/poisson10000.mtx");
+	SMatrix T = readMatrix("../matrices/CSky3d30.mtx");
 	
   auto result = AGMG::multiple_pairwise_aggregation(T.rows(), T, 8, 2, 4);
   auto pro_matrix = AGMG::get_prolongation_matrix(T, result.first.second);
-  writeMatrix("../matrices/poission10000promatrix.mtx", pro_matrix);
+  writeMatrix("../matrices/CSky3d30promatrix_reduced.mtx", pro_matrix);
   // cout << T.rows() << " " << result.first.first << endl;
   //  auto pro_matrix = AGMG::get_prolongation_matrix(T, result.first.second);
     

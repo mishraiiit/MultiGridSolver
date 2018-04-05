@@ -241,7 +241,6 @@ namespace AGMG {
             if((best_j != -1) && (best_mu_ij <= ktg)) {
                 g_vec.push_back({i, best_j});
                 assert(A.coeff(i, best_j) != 0);
-                assert(i < best_j);
                 in_u[i] = false;
                 in_u[best_j] = false;
             } else {
@@ -314,12 +313,11 @@ namespace AGMG {
 
             nc = nc + 1;
 
-            if(0 <= best_mu_ij && best_mu_ij <= ktg) {
+            if((best_j != -1) && (0 <= best_mu_ij && best_mu_ij <= ktg)) {
                 g_vec.push_back(merge_sets(gk_bar[i], gk_bar[best_j]));
                 in_u[i] = false;
                 in_u[best_j] = false;
                 assert(A_bar.coeff(i, best_j) != 0);
-                assert(i < best_j);
             } else {
                 g_vec.push_back(gk_bar[i]);
                 in_u[i] = false;
