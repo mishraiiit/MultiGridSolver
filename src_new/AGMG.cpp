@@ -2,6 +2,7 @@
 #include <typeinfo>
 #include <Eigen/Sparse>
 #include <bits/stdc++.h>
+#include <deque>
 using namespace std;
 using namespace Eigen;
 
@@ -9,6 +10,52 @@ typedef SparseMatrix<double, RowMajor> SMatrix;
 
 
 namespace AGMG {
+
+    vector<int> getNeighbours(int u, const SMatrix & adj) {
+        vector<int> result;
+        SparseVector<double> rowvec = adj.row(u);
+        for(SparseVector<double>::InnerIterator i(rowvec); i; ++i) {
+            if(i.value() != 0) {
+                result.push_back(i.index());
+            }
+        }
+        return result;
+    }
+
+    vector<int> getCMKOrdering(int n, const SMatrix & adj) {
+        vector<int> order;
+        vector<bool> visited(n, false);
+        deque<int> q;
+        int start = -1;
+
+        vector<int> mini;
+
+        for(int i = 0; i < n; i++) {
+            if(start == -1 || adj.row(i).nonZeros() < adj.row(start).nonZeros()) {
+                start = i;
+            }
+        }
+
+        visited[start] = true;
+        q.push_back(start);
+        order.push_back(start);
+
+        while(!q.empty()) {
+            int u = q.front();
+            q.pop_front();
+            vector<int> ne = getNeighbours(u, adj);
+            for(int v : ne) {
+                if(!visited[v]) {
+                    visited[v] = true;
+                    q.push_back(v);
+                    order.push_back(v);
+                }
+            }
+        }
+
+        assert(order.size() == n);
+        return order;
+    }
 
     std::vector<int> merge_sets(std::vector<int> arg1, std::vector<int> arg2) {
         std::vector<int> result(arg1.size() + arg2.size());
@@ -39,7 +86,7 @@ namespace AGMG {
         return P.transpose() * A * P;
     }
 
-    double abs_row_col_sum(SMatrix & A, SMatrix & A_trans, int i) {
+    double abs_row_col_sum(const SMatrix & A, const SMatrix & A_trans, int i) {
         SparseVector<double> row = A.row(i);
         SparseVector<double> col = A_trans.row(i);
 
@@ -83,7 +130,7 @@ namespace AGMG {
         return ans;
     }
 
-    double row_col_sum(SMatrix & A, SMatrix & A_trans, int i) {
+    double row_col_sum(const SMatrix & A, const SMatrix & A_trans, int i) {
         SparseVector<double> row = A.row(i);
         SparseVector<double> col = A_trans.row(i);
 
@@ -102,7 +149,9 @@ namespace AGMG {
 
     std::pair<int, std::pair<std::vector<int>, std::vector<std::vector<int> > > >
     initial_pairwise_aggregation
-    (int n, SMatrix & A, double ktg) {
+    (int n, const SMatrix & A, double ktg) {
+
+        vector<int> cmk = getCMKOrdering(n, A);
 
         SMatrix A_trans = A.transpose();
 
@@ -125,7 +174,7 @@ namespace AGMG {
         for(int i = 0; i < n; i++) {
             if(A.coeff(i, i) >= (ktg / (ktg - 2)) * abs_row_col_sum(A, A_trans, i)) {
                 g0.push_back(i);
-                std::cerr << "g0 contains " << i << std::endl;
+                // std::cerr << "g0 contains " << i << std::endl;
                 in_u[i] = false;
             }
         }
@@ -148,7 +197,8 @@ namespace AGMG {
 
         /* Iteration part of this routine now. */
 
-        for(int i = 0; i < n; i++) {
+        for(int i_index = 0; i_index < n; i_index++) {
+            int i = cmk[i_index];
             if(!in_u[i]) continue;
             /* The value of j for which mu ({i, j}) is minimized.
                best_mu_ij would store the minimum mu ({i, j}) value.
@@ -170,7 +220,8 @@ namespace AGMG {
                 return num / den;
             };
 
-            for(int j = i + 1; j < n; j++) {
+            for(int j_index = i_index + 1; j_index < n; j_index++) {
+                int j = cmk[j_index];
                 if(!in_u[j]) continue;
                 if((j != i) && (A.coeff(i, j) != 0)) {
                     assert(i < j);
@@ -189,6 +240,8 @@ namespace AGMG {
             nc = nc + 1;
             if((best_j != -1) && (best_mu_ij <= ktg)) {
                 g_vec.push_back({i, best_j});
+                assert(A.coeff(i, best_j) != 0);
+                assert(i < best_j);
                 in_u[i] = false;
                 in_u[best_j] = false;
             } else {
@@ -203,10 +256,12 @@ namespace AGMG {
 
      std::pair<int, std::vector<std::vector<int> > >
     further_pairwise_aggregation 
-    (int n, SMatrix & A, double ktg, int nc_bar,
-      std::vector<std::vector<int> > gk_bar, SMatrix & A_bar) {
+    (int n, const SMatrix & A, double ktg, int nc_bar,
+      std::vector<std::vector<int> > gk_bar, const SMatrix & A_bar) {
         std::vector<std::vector<int> > g_vec;
         assert(gk_bar.size() == nc_bar);
+
+        vector<int> cmk = getCMKOrdering(nc_bar, A_bar);
 
         SMatrix A_bar_trans = A_bar.transpose();
 
@@ -226,8 +281,8 @@ namespace AGMG {
             si_bar[i] = row_col_sum(A_bar, A_bar_trans, i);
         }
 
-        for(int i = 0; i < nc_bar; i++) {
-
+        for(int i_index = 0; i_index < nc_bar; i_index++) {
+            int i = cmk[i_index];
             if(!in_u[i]) continue;
 
             int best_j = -1;
@@ -240,7 +295,8 @@ namespace AGMG {
                 return num / den;
             };
 
-            for(int j = i + 1; j < nc_bar; j++) {
+            for(int j_index = i_index + 1; j_index < nc_bar; j_index++) {
+                int j = cmk[j_index];
                 if(!in_u[j]) continue;
                 if((j != i) && (A_bar.coeff(i, j) != 0)) {
                     double si = si_bar[i];
@@ -262,6 +318,8 @@ namespace AGMG {
                 g_vec.push_back(merge_sets(gk_bar[i], gk_bar[best_j]));
                 in_u[i] = false;
                 in_u[best_j] = false;
+                assert(A_bar.coeff(i, best_j) != 0);
+                assert(i < best_j);
             } else {
                 g_vec.push_back(gk_bar[i]);
                 in_u[i] = false;
@@ -276,7 +334,7 @@ namespace AGMG {
 
     std::pair<std::pair<int, std::vector<std::vector<int> > >, SMatrix> 
     multiple_pairwise_aggregation 
-    (int n, SMatrix & A, double ktg, int npass , double tou) {
+    (int n, const SMatrix & A, double ktg, int npass , double tou) {
         std::pair<int, std::pair<std::vector<int>, std::vector<std::vector<int> > > > 
         first_result = initial_pairwise_aggregation(n, A, ktg);
         
