@@ -36,7 +36,7 @@ SMatrix readMatrix(string filename) {
     return matrix;
 }
 
-void writeMatrix(string filename, SMatrix matrix) {
+void writeMatrix(string filename, const SMatrix & matrix) {
     int rows = matrix.rows();
     int cols = matrix.cols();
     int nnz = matrix.nonZeros();
