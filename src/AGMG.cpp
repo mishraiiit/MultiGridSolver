@@ -8,7 +8,6 @@ using namespace Eigen;
 
 typedef SparseMatrix<double, RowMajor> SMatrix;
 
-
 namespace AGMG {
 
     vector<int> getNeighbours(int u, const SMatrix & adj) {
@@ -23,6 +22,15 @@ namespace AGMG {
     }
 
     vector<int> getCMKOrdering(int n, const SMatrix & adj) {
+        #ifdef CMK_OFF
+        vector<int> order;
+        for(int i = 0; i < n; i++) {
+            order.push_back(i);
+        }
+        return order;
+        #endif
+
+        #ifndef CMK_OFF
         vector<int> order;
         vector<bool> visited(n, false);
         deque<int> q;
@@ -55,6 +63,7 @@ namespace AGMG {
 
         assert(order.size() == n);
         return order;
+        #endif
     }
 
     std::vector<int> merge_sets(std::vector<int> arg1, std::vector<int> arg2) {
