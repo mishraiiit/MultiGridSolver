@@ -38,9 +38,8 @@ int main(int argc, char * argv[]) {
 
   auto start = std::chrono::system_clock::now();
 
-  auto result = AGMG::multiple_pairwise_aggregation(T.rows(), T, ktg, npass, tou);
-  auto pro_matrix = AGMG::get_prolongation_matrix(T, result.first.second);
-
+  auto pro_matrix = AGMG::multiple_pairwise_aggregation(T.rows(), T, ktg, npass, tou);
+  
   auto end = std::chrono::system_clock::now();
 
   std::chrono::duration<double> diff = end-start;
