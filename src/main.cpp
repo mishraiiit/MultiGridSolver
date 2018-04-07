@@ -8,8 +8,6 @@
 using namespace std;
 using namespace Eigen;
 
-typedef SparseMatrix<double, RowMajor> SMatrix;
-
 int main(int argc, char * argv[]) {
 
   string matrixname;
@@ -38,7 +36,7 @@ int main(int argc, char * argv[]) {
 
   auto start = std::chrono::system_clock::now();
 
-  auto pro_matrix = AGMG::multiple_pairwise_aggregation(T.rows(), T, ktg, npass, tou);
+  auto pro_matrix = AGMG::multiple_pairwise_aggregation(T, ktg, npass, tou);
   
   auto end = std::chrono::system_clock::now();
 

@@ -10,9 +10,9 @@ typedef SparseMatrix<double, RowMajor> SMatrix;
 
 namespace AGMG {
 
-    int * getCMKOrdering(int n, const SMatrix & adj) {
-        int * order = new int[n];
-        bool * visited = new bool[n];
+    const int * const getCMKOrdering(const int n, const SMatrix & adj) {
+        int * const order = new int[n];
+        bool * const visited = new bool[n];
         for(int i = 0; i < n; i++) {
             visited[i] = 0;
         }
@@ -28,7 +28,7 @@ namespace AGMG {
             int u = order[used];
             used++;
 
-            SparseVector<double> rowvec = adj.row(u);
+            const SparseVector<double> rowvec = adj.row(u);
             for(SparseVector<double>::InnerIterator i(rowvec); i; ++i) {
                 int v = i.index();
                 if(!visited[v]) {
@@ -44,9 +44,9 @@ namespace AGMG {
         return order;
     }
 
-    double abs_row_col_sum(const SMatrix & A, const SMatrix & A_trans, int i) {
-        SparseVector<double> row = A.row(i);
-        SparseVector<double> col = A_trans.row(i);
+    inline const double abs_row_col_sum(const SMatrix & A, const SMatrix & A_trans, const int i) {
+        const SparseVector<double> row = A.row(i);
+        const SparseVector<double> col = A_trans.row(i);
 
         SparseVector<double>::InnerIterator row_i(row);
         SparseVector<double>::InnerIterator col_i(col);
@@ -80,26 +80,35 @@ namespace AGMG {
         return ans;
     }
 
-    double row_col_sum(const SMatrix & A, const SMatrix & A_trans, int i) {
-        SparseVector<double> row = A.row(i);
-        SparseVector<double> col = A_trans.row(i);
+    inline const double row_col_sum(const SMatrix & A, const SMatrix & A_trans, const int i) {
+        const SparseVector<double> row = A.row(i);
+        const SparseVector<double> col = A_trans.row(i);
         double ans = - (row.sum() + col.sum()) / 2;
         ans += A.coeff(i, i);
         return ans;
     }
 
-    SMatrix initial_pairwise_aggregation
-    (const SMatrix & A, double ktg) {
-        int n = A.rows();
-        int * cmk = getCMKOrdering(n, A);
+    inline const double mu(const SMatrix & A, const double * const s, const int i, const int j) {
+        const double si = s[i];
+        const double sj = s[j];
+        const double num = 2 / (1 / A.coeff(i, i) + 1 / A.coeff(j, j));   
+        const double den = (- (A.coeff(i, j) + A.coeff(j, i)) / 2) + 1 / (1 / \
+        (A.coeff(i, i) - si) + 1 / (A.coeff(j, j) - sj));
+        return num / den;
+    }
+
+    const SMatrix initial_pairwise_aggregation
+    (const SMatrix & A, const double ktg) {
+        const int n = A.rows();
+        const int * const cmk = getCMKOrdering(n, A);
 
         SMatrix A_trans = A.transpose();
 
-        int * groups = new int[n];
+        int * const groups = new int[n];
 
         assert(n == A.rows());
 
-        bool * in_u = new bool[n];
+        bool * const in_u = new bool[n];
         for(int i = 0; i < n; i++) {
             in_u[i] = true;
         }
@@ -117,7 +126,7 @@ namespace AGMG {
         /*
             Compute si vector.
         */
-        double * s = new double[n];
+        double * const s = new double[n];
         for(int i = 0; i < n; i++) {
             groups[i] = -1;
             s[i] = row_col_sum(A, A_trans, i);
@@ -137,18 +146,8 @@ namespace AGMG {
             int best_j = -1;
             double best_mu_ij;
 
-            // mu({i, j})
-            // Lambda function takes inp {i, j} and returns mu({i, j}).
-            auto mu = [&A, &s] (int i, int j) {
-                double si = s[i];
-                double sj = s[j];
-                double num = 2 / (1 / A.coeff(i, i) + 1 / A.coeff(j, j));   
-                double den = (- (A.coeff(i, j) + A.coeff(j, i)) / 2) + 1 / (1 / \
-                (A.coeff(i, i) - si) + 1 / (A.coeff(j, j) - sj));
-                return num / den;
-            };
 
-            SparseVector<double> ne_row = A.row(i);
+            const SparseVector<double> ne_row = A.row(i);
             for(SparseVector<double>::InnerIterator j_it(ne_row); j_it; ++j_it) {
                 int j = j_it.index();
                 if(!in_u[j]) continue;
@@ -158,7 +157,7 @@ namespace AGMG {
                     double sj = s[j];
                     if(A.coeff(i, i) - si + A.coeff(j, j) - sj >= 0) {
                         // Finding the best j.
-                        double current_mu_ij = mu(i, j);
+                        double current_mu_ij = mu(A, s, i, j);
                         if((best_j == -1) || (current_mu_ij < best_mu_ij)) {
                             best_j = j;
                             best_mu_ij = current_mu_ij;
@@ -193,16 +192,16 @@ namespace AGMG {
         return P;
     }
 
-    SMatrix further_pairwise_aggregation 
-    (const SMatrix & A, double ktg, const SMatrix & P_bar) {
-        int n = A.rows();
-        int nc_bar = P_bar.cols();
-        SMatrix P_bar_trans = P_bar.transpose();
-        SMatrix A_bar = P_bar_trans * A * P_bar;
-        SMatrix A_bar_trans = A_bar.transpose();
+    const SMatrix further_pairwise_aggregation 
+    (const SMatrix & A, const double ktg, const SMatrix & P_bar) {
+        const int n = A.rows();
+        const int nc_bar = P_bar.cols();
+        const SMatrix P_bar_trans = P_bar.transpose();
+        const SMatrix A_bar = P_bar_trans * A * P_bar;
+        const SMatrix A_bar_trans = A_bar.transpose();
 
-        int * groups = new int[n];
-        bool * in_u = new bool[nc_bar];
+        int * const groups = new int[n];
+        bool * const in_u = new bool[nc_bar];
 
         for(int i = 0; i < n; i++) {
             groups[i] = -1;
@@ -214,7 +213,7 @@ namespace AGMG {
         }
         int nc = 0;
 
-        double * si_bar = new double[nc_bar];
+        double * const si_bar = new double[nc_bar];
         for(int i = 0; i < nc_bar; i++) {
             si_bar[i] = row_col_sum(A_bar, A_bar_trans, i);
         }
@@ -225,14 +224,7 @@ namespace AGMG {
             int best_j = -1;
             double best_mu_ij;
 
-            auto mu_barij = [&A_bar, &si_bar](int i, int j) {
-                double num = 2 / ((1 / A_bar.coeff(i, i)) + (1 / A_bar.coeff(j, j)));
-                double den = (-((A_bar.coeff(i, j) + A_bar.coeff(j, i)) / 2)) + 1 / ((1 /\
-                 (A_bar.coeff(i, i) - si_bar[i]))  + (1 / (A_bar.coeff(j, j) - si_bar[j])));
-                return num / den;
-            };
-
-            SparseVector<double> ne_row = A_bar.row(i);
+            const SparseVector<double> ne_row = A_bar.row(i);
             for(SparseVector<double>::InnerIterator j_it(ne_row); j_it; ++j_it) {
                 int j = j_it.index();
                 if(!in_u[j]) continue;
@@ -241,7 +233,7 @@ namespace AGMG {
                     double sj = si_bar[j];
                     if(A_bar.coeff(i, i) - si + A_bar.coeff(j, j) - sj >= 0) {
                         // Finding the best j.
-                        double current_mu_ij = mu_barij(i, j);
+                        double current_mu_ij = mu(A_bar, si_bar, i, j);
                         if((best_j == -1) || (current_mu_ij < best_mu_ij)) {
                             best_j = j;
                             best_mu_ij = current_mu_ij;
@@ -266,7 +258,7 @@ namespace AGMG {
                 in_u[i] = false;
                 in_u[best_j] = false;
             } else {
-                SparseVector<double> row_i = P_bar_trans.row(i);
+                const SparseVector<double> row_i = P_bar_trans.row(i);
                 for(SparseVector<double>::InnerIterator row_i_it(row_i); row_i_it; ++row_i_it) {
                     groups[row_i_it.index()] = nc - 1;
                 }
@@ -288,11 +280,11 @@ namespace AGMG {
         return P;
     }
 
-    SMatrix multiple_pairwise_aggregation 
-    (int n, const SMatrix & A, double ktg, int npass , double tou) {
-        
-        int non_zero_in_A = A.nonZeros();
-        auto last_result = initial_pairwise_aggregation(A, ktg);
+    const SMatrix multiple_pairwise_aggregation 
+    (const SMatrix & A, double ktg, int npass , double tou) {
+        const int n = A.rows();   
+        const int non_zero_in_A = A.nonZeros();
+        SMatrix last_result = initial_pairwise_aggregation(A, ktg);
         std::cerr << "Round 1 completed. Size: " << last_result.cols() << std::endl;
 
         for(int s = 2; s <= npass; s++) {
