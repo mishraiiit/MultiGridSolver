@@ -185,9 +185,6 @@ namespace AGMG {
             }
         }
 
-        cerr << "Round 1 -> ";
-        cerr << P.rows() << " " << P.cols() << endl;
-
         delete [] in_u;
         delete [] cmk;
         delete [] s;
