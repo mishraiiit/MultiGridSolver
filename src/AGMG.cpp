@@ -188,8 +188,7 @@ namespace AGMG {
         /*
             Compute si vector.
         */
-        // DOUBT
-        std::vector<double> s(n);
+        double * s = new double[n];
         for(int i = 0; i < n; i++) {
             s[i] = row_col_sum(A, A_trans, i);
         }
@@ -260,6 +259,7 @@ namespace AGMG {
         assert(nc == g_vec.size());
         delete [] in_u;
         delete [] cmk;
+        delete [] s;
         return {nc, g_vec};
     }
 
@@ -283,7 +283,7 @@ namespace AGMG {
         // i varies from 0 to nc_bar - 1. (in the paper it varies from 1 to 
         // nc_bar, but we follow 0 based indexing. )
 
-        std::vector<double> si_bar(nc_bar);
+        double * si_bar = new double[nc_bar];
         for(int i = 0; i < nc_bar; i++) {
             si_bar[i] = row_col_sum(A_bar, A_bar_trans, i);
         }
@@ -335,6 +335,7 @@ namespace AGMG {
         
         assert(nc == g_vec.size());
         delete [] in_u;
+        delete [] si_bar;
         return {nc, g_vec};
     }
 
