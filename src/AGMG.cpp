@@ -193,11 +193,9 @@ namespace AGMG {
     }
 
     const SMatrix further_pairwise_aggregation 
-    (const SMatrix & A, const double ktg, const SMatrix & P_bar) {
+    (const SMatrix & A, const double ktg, const SMatrix & P_bar, const SMatrix & P_bar_trans, const SMatrix & A_bar) {
         const int n = A.rows();
         const int nc_bar = P_bar.cols();
-        const SMatrix P_bar_trans = P_bar.transpose();
-        const SMatrix A_bar = P_bar_trans * A * P_bar;
         const SMatrix A_bar_trans = A_bar.transpose();
 
         int * const groups = new int[n];
@@ -284,14 +282,17 @@ namespace AGMG {
     (const SMatrix & A, double ktg, int npass , double tou) {
         const int n = A.rows();   
         const int non_zero_in_A = A.nonZeros();
-        SMatrix last_result = initial_pairwise_aggregation(A, ktg);
-        std::cerr << "Round 1 completed. Size: " << last_result.cols() << std::endl;
+        SMatrix P_bar = initial_pairwise_aggregation(A, ktg);
+        std::cerr << "Round 1 completed. Size: " << P_bar.cols() << std::endl;
 
         for(int s = 2; s <= npass; s++) {
-            last_result = further_pairwise_aggregation(A, ktg, last_result);
-            std::cerr << "Round " << s << " completed. Size: " << last_result.cols() << std::endl;
+            const SMatrix & P_bar_trans = P_bar.transpose();
+            const SMatrix & A_bar = P_bar_trans * A * P_bar;
+            if(A_bar.nonZeros() <= non_zero_in_A / tou) break;
+            P_bar = further_pairwise_aggregation(A, ktg, P_bar, P_bar_trans, A_bar);
+            std::cerr << "Round " << s << " completed. Size: " << P_bar.cols() << std::endl;
         }
-        return last_result;
+        return P_bar;
     }
 
 }
