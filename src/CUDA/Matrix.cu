@@ -15,15 +15,16 @@ MatrixCOOUnsorted * readMatrix(string filename) {
     // Ignore headers and comments:
     while (fin.peek() == '%') fin.ignore(2048, '\n');
     // Read defining parameters:
-    matrix_coo->rows = M;
-    matrix_coo->cols = N;
-    matrix_coo->val = L;
     fin >> M >> N >> L;
     // Read the data
 
     MatrixCOOUnsorted * matrix_coo;
     cudaMallocManaged(&matrix_coo, sizeof(MatrixCOOUnsorted));
 
+    matrix_coo->rows = M;
+    matrix_coo->cols = N;
+    matrix_coo->val = L;
+    
     cudaMallocManaged(&matrix_coo->i, sizeof(int) * L);
     cudaMallocManaged(&matrix_coo->i, sizeof(int) * L);
     cudaMallocManaged(&matrix_coo->j, sizeof(int) * L);
