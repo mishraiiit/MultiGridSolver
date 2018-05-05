@@ -4,6 +4,7 @@ using namespace std;
 #include <vector>
 
 struct MatrixCOOUnsorted {
+    int rows, cols, nnz;
     int * i, * j;
     double * val;
 };
@@ -14,6 +15,9 @@ MatrixCOOUnsorted * readMatrix(string filename) {
     // Ignore headers and comments:
     while (fin.peek() == '%') fin.ignore(2048, '\n');
     // Read defining parameters:
+    matrix_coo->rows = M;
+    matrix_coo->cols = N;
+    matrix_coo->val = L;
     fin >> M >> N >> L;
     // Read the data
 
