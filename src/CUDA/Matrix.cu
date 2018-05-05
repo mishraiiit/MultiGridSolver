@@ -15,7 +15,6 @@ MatrixCOOUnsorted * readMatrix(string filename) {
     while (fin.peek() == '%') fin.ignore(2048, '\n');
     // Read defining parameters:
     fin >> M >> N >> L;
-    SMatrix matrix(M, N);
     // Read the data
 
     MatrixCOOUnsorted * matrix_coo;
