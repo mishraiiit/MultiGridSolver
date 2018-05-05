@@ -32,6 +32,8 @@ MatrixCOOUnsorted * readMatrixUnified(string filename) {
 
     int filled = 0;
 
+    auto start = std::chrono::system_clock::now();
+
     vector< vector <pair<int, double> > > matrix_data(M);
     for (int l = 0; l < L; l++) {
         int m, n;
@@ -52,6 +54,11 @@ MatrixCOOUnsorted * readMatrixUnified(string filename) {
     assert(filled == L);
     fin.close();
     cerr << "Read matrix from file: " << filename << endl;
+
+    auto end = std::chrono::system_clock::now();
+    std::chrono::duration<double> diff = end-start;
+    std::cerr << "Time for reading: " << diff.count() << " s\n";
+
     return matrix_coo;
 }
 
@@ -71,11 +78,13 @@ MatrixCOOUnsorted * readMatrixCPU(string filename) {
     matrix_coo->cols = N;
     matrix_coo->nnz = L;
 
-    matrix_coo->i = malloc(sizeof(int) * L);
-    matrix_coo->j = malloc(sizeof(int) * L);
-    matrix_coo->val = malloc(sizeof(double) * L);
+    matrix_coo->i = (int *) malloc(sizeof(int) * L);
+    matrix_coo->j = (int *) malloc(sizeof(int) * L);
+    matrix_coo->val = (double *) malloc(sizeof(double) * L);
     
     int filled = 0;
+
+    auto start = std::chrono::system_clock::now();
 
     vector< vector <pair<int, double> > > matrix_data(M);
     for (int l = 0; l < L; l++) {
@@ -97,5 +106,10 @@ MatrixCOOUnsorted * readMatrixCPU(string filename) {
     assert(filled == L);
     fin.close();
     cerr << "Read matrix from file: " << filename << endl;
+
+    auto end = std::chrono::system_clock::now();
+    std::chrono::duration<double> diff = end-start;
+    std::cerr << "Time for reading: " << diff.count() << " s\n";
+
     return matrix_coo;
 }
