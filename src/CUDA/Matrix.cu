@@ -23,8 +23,8 @@ MatrixCOOUnsorted * readMatrix(string filename) {
 
     matrix_coo->rows = M;
     matrix_coo->cols = N;
-    matrix_coo->val = L;
-    
+    matrix_coo->nnz = L;
+
     cudaMallocManaged(&matrix_coo->i, sizeof(int) * L);
     cudaMallocManaged(&matrix_coo->i, sizeof(int) * L);
     cudaMallocManaged(&matrix_coo->j, sizeof(int) * L);
