@@ -17,26 +17,39 @@ __global__ void debugCSR(MatrixCSR * matrix) {
 	}
 }
 
+__global__ void linebyline(MatrixCSR * matrix) {
+	int i = blockIdx.x * blockDim.x + threadIdx.x;
+	if(i == 5) {
+		for(int j = matrix->i[i]; j < matrix->i[i + 1]; j++) {
+			printf("%d %d %lf----", i, matrix->j[j], matrix->val[j]);
+		}
+		printf("\n");
+	}
+}
+
 int main() {
 
-	// auto tempCOO = readMatrixGPUMemoryCOO("../../matrices/poisson10000.mtx");
-	// debugCOO <<<1,1>>> (tempCOO);
-	// cudaDeviceSynchronize();
-	
-
-	auto tempCSR = readMatrixGPUMemoryCSR("../../matrices/poisson10000.mtx");
-	debugCSR <<<1,1>>> (tempCSR);
+	auto tempCOO = readMatrixGPUMemoryCOO("../../matrices/SmallTestMatrix.mtx");
+	debugCOO <<<1,1>>> (tempCOO);
 	cudaDeviceSynchronize();
 
-	return 0;
-
-
+	auto tempCSC = readMatrixUnifiedMemoryCSC("../../matrices/SmallTestMatrix.mtx");
+	for(int i = 0; i < tempCSC->cols; i++) {
+		for(int j = tempCSC->j[i]; j < tempCSC->j[i + 1]; j++) {
+			printf("%d %d %lf\n", tempCSC->i[j], i, tempCSC->val[j]);
+		}
+	}
 	
 
-	/*
-	for(int i = 0; i < temp->nnz; i++) {
-		cout << temp->i[i] << " " << temp->j[i] << " " << temp->val[i] << endl;
-	}
-	*/
+	// auto tempCSRCPU = readMatrixCPUMemoryCSR("../../matrices/SmallTestMatrix.mtx");
+	// auto tempCSR = readMatrixGPUMemoryCSR("../../matrices/SmallTestMatrix.mtx");
+
+
+	// // debugCSR <<<1,1>>> (tempCSR);
+	// cudaDeviceSynchronize();
+
+	// linebyline <<< (tempCSRCPU->rows + 1 - 1) / 1, 1 >>> (tempCSR);
+	// cudaDeviceSynchronize();
+
 	return 0;
 }
