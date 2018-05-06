@@ -3,13 +3,19 @@
 using namespace std;
 #include <vector>
 
-struct MatrixCOOUnsorted {
+struct MatrixCOO {
     int rows, cols, nnz;
     int * i, * j;
     double * val;
 };
 
-MatrixCOOUnsorted * readMatrixUnified(string filename) {
+struct MatrixCSR {
+    int rows, cols, nnz;
+    int * i, * j;
+    double * val;
+};
+
+MatrixCOO * readMatrixUnifiedMemoryCOO(string filename) {
     std::ifstream fin(filename);
     int M, N, L;
     // Ignore headers and comments:
@@ -18,14 +24,13 @@ MatrixCOOUnsorted * readMatrixUnified(string filename) {
     fin >> M >> N >> L;
     // Read the data
 
-    MatrixCOOUnsorted * matrix_coo;
-    cudaMallocManaged(&matrix_coo, sizeof(MatrixCOOUnsorted));
+    MatrixCOO * matrix_coo;
+    cudaMallocManaged(&matrix_coo, sizeof(MatrixCOO));
 
     matrix_coo->rows = M;
     matrix_coo->cols = N;
     matrix_coo->nnz = L;
 
-    cudaMallocManaged(&matrix_coo->i, sizeof(int) * L);
     cudaMallocManaged(&matrix_coo->i, sizeof(int) * L);
     cudaMallocManaged(&matrix_coo->j, sizeof(int) * L);
     cudaMallocManaged(&matrix_coo->val, sizeof(double) * L);
@@ -62,7 +67,7 @@ MatrixCOOUnsorted * readMatrixUnified(string filename) {
     return matrix_coo;
 }
 
-MatrixCOOUnsorted * readMatrixCPU(string filename) {
+MatrixCOO * readMatrixCPUMemoryCOO(string filename) {
     std::ifstream fin(filename);
     int M, N, L;
     // Ignore headers and comments:
@@ -71,8 +76,8 @@ MatrixCOOUnsorted * readMatrixCPU(string filename) {
     fin >> M >> N >> L;
     // Read the data
 
-    MatrixCOOUnsorted * matrix_coo;
-    matrix_coo =  (MatrixCOOUnsorted *) malloc(sizeof(MatrixCOOUnsorted));
+    MatrixCOO * matrix_coo;
+    matrix_coo =  (MatrixCOO *) malloc(sizeof(MatrixCOO));
 
     matrix_coo->rows = M;
     matrix_coo->cols = N;
@@ -112,4 +117,181 @@ MatrixCOOUnsorted * readMatrixCPU(string filename) {
     std::cerr << "Time for reading: " << diff.count() << " s\n";
 
     return matrix_coo;
+}
+
+MatrixCOO * readMatrixGPUMemoryCOO(string filename) {
+
+    MatrixCOO * matrix_coo_cpu = readMatrixCPUMemoryCOO(filename);
+    MatrixCOO * matrix_coo;
+
+    int * device_i, * device_j;
+    double * device_val;
+
+    cudaMalloc(&device_i, sizeof(int) * matrix_coo_cpu->nnz);
+    cudaMalloc(&device_j, sizeof(int) * matrix_coo_cpu->nnz);
+    cudaMalloc(&device_val, sizeof(double) * matrix_coo_cpu->nnz);
+
+    cudaMemcpy(device_i, matrix_coo_cpu->i, sizeof(int) * matrix_coo_cpu->nnz, cudaMemcpyHostToDevice);
+    cudaMemcpy(device_j, matrix_coo_cpu->j, sizeof(int) * matrix_coo_cpu->nnz, cudaMemcpyHostToDevice);
+    cudaMemcpy(device_val, matrix_coo_cpu->val, sizeof(double) * matrix_coo_cpu->nnz, cudaMemcpyHostToDevice);
+
+
+    free(matrix_coo_cpu->i);
+    free(matrix_coo_cpu->j);
+    free(matrix_coo_cpu->val);
+
+    matrix_coo_cpu->i = device_i;
+    matrix_coo_cpu->j = device_j;
+    matrix_coo_cpu->val = device_val;
+
+    cudaMalloc(&matrix_coo, sizeof(MatrixCOO));
+    cudaMemcpy(matrix_coo, matrix_coo_cpu, sizeof(MatrixCOO), cudaMemcpyHostToDevice);
+
+    free(matrix_coo_cpu);
+
+    return matrix_coo;
+}
+
+
+MatrixCSR * readMatrixUnifiedMemoryCSR(string filename) {
+    std::ifstream fin(filename);
+    int M, N, L;
+    // Ignore headers and comments:
+    while (fin.peek() == '%') fin.ignore(2048, '\n');
+    // Read defining parameters:
+    fin >> M >> N >> L;
+    // Read the data
+
+    MatrixCSR * matrix_csr;
+    cudaMallocManaged(&matrix_csr, sizeof(MatrixCSR));
+
+    matrix_csr->rows = M;
+    matrix_csr->cols = N;
+    matrix_csr->nnz = L;
+
+    cudaMallocManaged(&matrix_csr->i, sizeof(int) * (matrix_csr->rows + 1));
+    cudaMallocManaged(&matrix_csr->j, sizeof(int) * L);
+    cudaMallocManaged(&matrix_csr->val, sizeof(double) * L);
+
+    int filled = 0;
+
+    auto start = std::chrono::system_clock::now();
+
+    vector< vector <pair<int, double> > > matrix_data(M);
+    for (int l = 0; l < L; l++) {
+        int m, n;
+        double data;
+        fin >> m >> n >> data;
+        matrix_data[m - 1].push_back({n - 1, data});
+    }
+    
+    for(int i = 0; i < M; i++) {
+        sort(matrix_data[i].begin(), matrix_data[i].end());
+        matrix_csr->i[i] = filled;
+        for(auto tp : matrix_data[i]) {
+            matrix_csr->j[filled] = tp.first;
+            matrix_csr->val[filled] = tp.second;
+            filled++;
+        }
+    }
+
+    matrix_csr->i[M] = filled;
+
+    assert(filled == L);
+    fin.close();
+    cerr << "Read matrix from file: " << filename << endl;
+
+    auto end = std::chrono::system_clock::now();
+    std::chrono::duration<double> diff = end-start;
+    std::cerr << "Time for reading: " << diff.count() << " s\n";
+
+    return matrix_csr;
+}
+
+MatrixCSR * readMatrixCPUMemoryCSR(string filename) {
+    std::ifstream fin(filename);
+    int M, N, L;
+    // Ignore headers and comments:
+    while (fin.peek() == '%') fin.ignore(2048, '\n');
+    // Read defining parameters:
+    fin >> M >> N >> L;
+    // Read the data
+
+    MatrixCSR * matrix_csr;
+    matrix_csr = (MatrixCSR *) malloc(sizeof(MatrixCSR));
+    
+    matrix_csr->rows = M;
+    matrix_csr->cols = N;
+    matrix_csr->nnz = L;
+
+    matrix_csr->i = (int *) malloc(sizeof(int) * (matrix_csr->rows + 1));
+    matrix_csr->j = (int *) malloc(sizeof(int) * L);
+    matrix_csr->val = (double *) malloc(sizeof(double) * L);
+
+    int filled = 0;
+
+    auto start = std::chrono::system_clock::now();
+
+    vector< vector <pair<int, double> > > matrix_data(M);
+    for (int l = 0; l < L; l++) {
+        int m, n;
+        double data;
+        fin >> m >> n >> data;
+        matrix_data[m - 1].push_back({n - 1, data});
+    }
+    
+    for(int i = 0; i < M; i++) {
+        sort(matrix_data[i].begin(), matrix_data[i].end());
+        matrix_csr->i[i] = filled;
+        for(auto tp : matrix_data[i]) {
+            matrix_csr->j[filled] = tp.first;
+            matrix_csr->val[filled] = tp.second;
+            filled++;
+        }
+    }
+
+    matrix_csr->i[M] = filled;
+
+    assert(filled == L);
+    fin.close();
+    cerr << "Read matrix from file: " << filename << endl;
+
+    auto end = std::chrono::system_clock::now();
+    std::chrono::duration<double> diff = end-start;
+    std::cerr << "Time for reading: " << diff.count() << " s\n";
+
+    return matrix_csr;
+}
+
+MatrixCSR * readMatrixGPUMemoryCSR(string filename) {
+
+    MatrixCSR * matrix_csr_cpu = readMatrixCPUMemoryCSR(filename);
+    MatrixCSR * matrix_csr;
+
+    int * device_i, * device_j;
+    double * device_val;
+
+    cudaMalloc(&device_i, sizeof(int) * matrix_csr_cpu->nnz);
+    cudaMalloc(&device_j, sizeof(int) * matrix_csr_cpu->nnz);
+    cudaMalloc(&device_val, sizeof(double) * matrix_csr_cpu->nnz);
+
+    cudaMemcpy(device_i, matrix_csr_cpu->i, sizeof(int) * (matrix_csr_cpu->rows + 1), cudaMemcpyHostToDevice);
+    cudaMemcpy(device_j, matrix_csr_cpu->j, sizeof(int) * matrix_csr_cpu->nnz, cudaMemcpyHostToDevice);
+    cudaMemcpy(device_val, matrix_csr_cpu->val, sizeof(double) * matrix_csr_cpu->nnz, cudaMemcpyHostToDevice);
+
+
+    free(matrix_csr_cpu->i);
+    free(matrix_csr_cpu->j);
+    free(matrix_csr_cpu->val);
+
+    matrix_csr_cpu->i = device_i;
+    matrix_csr_cpu->j = device_j;
+    matrix_csr_cpu->val = device_val;
+
+    cudaMalloc(&matrix_csr, sizeof(MatrixCSR));
+    cudaMemcpy(matrix_csr, matrix_csr_cpu, sizeof(MatrixCSR), cudaMemcpyHostToDevice);
+
+    free(matrix_csr_cpu);
+
+    return matrix_csr;
 }
