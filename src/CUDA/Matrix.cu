@@ -526,8 +526,8 @@ __global__ void comptueRowColumnAbsSum(MatrixCSR * matrix_csr, MatrixCSC * matri
         }
     }
 
-    //output[id] = ans;
-    printf("output[%d] : %lf\n", id, ans);
+    output[id] = ans;
+    //printf("output[%d] : %lf\n", id, ans);
 }
 
 __global__ void comptueSi(MatrixCSR * matrix_csr, MatrixCSC * matrix_csc, double * output) {
@@ -650,5 +650,37 @@ __global__ void sortNeighbourList(MatrixCSR * matrix, MatrixCSR * neighbour_list
                 swap_variables(neighbour_list->val[i], neighbour_list->val[j]);
             }
         }
-    }
+    }    
 }
+
+__global__ void printNeighbourList(MatrixCSR * matrix, MatrixCSR * neighbour_list, double * Si) {
+
+    for(int id = 0; id < neighbour_list->rows; id++) {
+        int row_start = neighbour_list->i[id];
+        int row_end = neighbour_list->i[id + 1];
+
+        //printf("Neighbours for %d\n", id);
+        for(int i = row_start; i < row_end; i++) {
+            //printf("%d %lf\n", neighbour_list->j[i], muij(id, neighbour_list->j[i], matrix, Si));        
+        }
+    }
+    //printf("\n");
+}
+
+class TicToc {
+    public:
+        std::chrono::time_point<std::chrono::system_clock> start, end;
+        string s;
+        TicToc(string s) : s(s) {
+
+        }
+        void tic() {
+            start = std::chrono::system_clock::now();            
+        }
+
+        void toc() {
+            end = std::chrono::system_clock::now();
+            std::chrono::duration<double> diff = end-start;
+            printf("%s %lf\n", s.c_str(), diff.count());            
+        }
+};
