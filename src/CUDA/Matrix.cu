@@ -532,13 +532,62 @@ __global__ void comptueRowColumnAbsSum(MatrixCSR * matrix_csr, MatrixCSC * matri
 }
 
 __global__ void comptueSi(MatrixCSR * matrix_csr, MatrixCSC * matrix_csc, double * output) {
-    int id = blockIdx.x * blockDim.x + threadIdx.x;
-    if(id >= matrix_csr->rows) return;
-    double ans = 0;
+int id = blockIdx.x * blockDim.x + threadIdx.x;
+    if(id >= matrix_csr->rows)
+        return;
 
-    output[id] = ans;
+    int row_start = matrix_csr->i[id];
+    int row_end = matrix_csr->i[id + 1];
+
+    int col_start = matrix_csc->j[id];
+    int col_end = matrix_csc->j[id + 1];
+
+    double ans = 0;
+    while(row_start < row_end || col_start < col_end) {
+        if(row_start < row_end && col_start < col_end) {
+            if(matrix_csr->j[row_start] < matrix_csc->i[col_start]) {
+                if(matrix_csr->j[row_start] != id)
+                    ans += matrix_csr->val[row_start] / 2;
+                row_start++;
+            } else if(matrix_csr->j[row_start] > matrix_csc->i[col_start]) {
+                if(matrix_csc->i[col_start] != id)
+                    ans += matrix_csc->val[col_start] / 2;
+                col_start++;
+            } else {
+                if(matrix_csr->j[row_start] != id)
+                    ans += (matrix_csr->val[row_start] + matrix_csc->val[col_start]) / 2;
+                row_start++;
+                col_start++;
+            }
+        } 
+        else if(row_start < row_end) {
+            if(matrix_csr->j[row_start] != id)
+                ans += matrix_csr->val[row_start] / 2;
+            row_start++;
+        } else {
+            if(matrix_csc->i[col_start] != id)
+                ans += matrix_csc->val[col_start] / 2;
+            col_start++;
+        }
+    }
+
+    output[id] = -ans;
 }
 
 __device__ double muij(int i, int j, MatrixCSR * matrix_csr, MatrixCSC * matrix_csc, double * Si) {
-    return 0.0;
+    double aii = getElementMatrixCSR(matrix_csr, i, i);
+    double ajj = getElementMatrixCSR(matrix_csr, j, j);
+    double aij = getElementMatrixCSR(matrix_csr, i, j);
+    double aji = getElementMatrixCSR(matrix_csr, j, i);
+
+    #ifdef TEST
+        assert(aii == getElementMatrixCSC(matrix_csc, i, i));
+        assert(ajj == getElementMatrixCSC(matrix_csc, j, j));
+        assert(aij == getElementMatrixCSC(matrix_csc, i, j));
+        assert(aji == getElementMatrixCSC(matrix_csc, j, i));
+    #endif
+
+    double num = 2 * (1 / ((1 / aii) + (1 / ajj)));
+    double den = (- (aij + aji) / 2) + 1 / ( ( 1 / (aii - Si[i])) + (1 / (ajj - Si[j])) );
+    return num / den;
 }
