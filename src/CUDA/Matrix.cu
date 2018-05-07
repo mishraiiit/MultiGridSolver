@@ -21,7 +21,6 @@ struct MatrixCSC {
     double * val;
 };
 
-
 MatrixCOO * readMatrixUnifiedMemoryCOO(string filename) {
     std::ifstream fin(filename);
     int M, N, L;
@@ -445,7 +444,7 @@ MatrixCSC * readMatrixGPUMemoryCSC(string filename) {
     return matrix_csc;
 }
 
-__device__ double getElementMatrixCSR(MatrixCSR * matrix, int i, int j) {
+__host__ __device__ double getElementMatrixCSR(MatrixCSR * matrix, int i, int j) {
     int l = matrix->i[i];
     int r = matrix->i[i + 1];
     if(l == r) return 0.0;
@@ -465,7 +464,7 @@ __device__ double getElementMatrixCSR(MatrixCSR * matrix, int i, int j) {
         return 0.0;
 }
 
-__device__ double getElementMatrixCSC(MatrixCSC * matrix, int i, int j) {
+__host__ __device__ double getElementMatrixCSC(MatrixCSC * matrix, int i, int j) {
     int l = matrix->j[j];
     int r = matrix->j[j + 1];
     if(l == r) return 0.0;
@@ -574,20 +573,82 @@ int id = blockIdx.x * blockDim.x + threadIdx.x;
     output[id] = -ans;
 }
 
-__device__ double muij(int i, int j, MatrixCSR * matrix_csr, MatrixCSC * matrix_csc, double * Si) {
+__host__ void comptueSiHost(MatrixCSR * matrix_csr, MatrixCSC * matrix_csc, double * output) {    
+    for(int id = 0; id < matrix_csr->rows; id++) {
+
+        int row_start = matrix_csr->i[id];
+        int row_end = matrix_csr->i[id + 1];
+
+        int col_start = matrix_csc->j[id];
+        int col_end = matrix_csc->j[id + 1];
+
+        double ans = 0;
+        while(row_start < row_end || col_start < col_end) {
+            if(row_start < row_end && col_start < col_end) {
+                if(matrix_csr->j[row_start] < matrix_csc->i[col_start]) {
+                    if(matrix_csr->j[row_start] != id)
+                        ans += matrix_csr->val[row_start] / 2;
+                    row_start++;
+                } else if(matrix_csr->j[row_start] > matrix_csc->i[col_start]) {
+                    if(matrix_csc->i[col_start] != id)
+                        ans += matrix_csc->val[col_start] / 2;
+                    col_start++;
+                } else {
+                    if(matrix_csr->j[row_start] != id)
+                        ans += (matrix_csr->val[row_start] + matrix_csc->val[col_start]) / 2;
+                    row_start++;
+                    col_start++;
+                }
+            } 
+            else if(row_start < row_end) {
+                if(matrix_csr->j[row_start] != id)
+                    ans += matrix_csr->val[row_start] / 2;
+                row_start++;
+            } else {
+                if(matrix_csc->i[col_start] != id)
+                    ans += matrix_csc->val[col_start] / 2;
+                col_start++;
+            }
+        }
+
+        output[id] = -ans;
+    }
+}
+
+__host__ __device__ double muij(int i, int j, MatrixCSR * matrix_csr, double * Si) {
     double aii = getElementMatrixCSR(matrix_csr, i, i);
     double ajj = getElementMatrixCSR(matrix_csr, j, j);
     double aij = getElementMatrixCSR(matrix_csr, i, j);
     double aji = getElementMatrixCSR(matrix_csr, j, i);
 
-    #ifdef TEST
-        assert(aii == getElementMatrixCSC(matrix_csc, i, i));
-        assert(ajj == getElementMatrixCSC(matrix_csc, j, j));
-        assert(aij == getElementMatrixCSC(matrix_csc, i, j));
-        assert(aji == getElementMatrixCSC(matrix_csc, j, i));
-    #endif
-
     double num = 2 * (1 / ((1 / aii) + (1 / ajj)));
     double den = (- (aij + aji) / 2) + 1 / ( ( 1 / (aii - Si[i])) + (1 / (ajj - Si[j])) );
     return num / den;
+}
+
+template<typename T>
+__device__ void swap_variables(T & u, T & v) {
+    T temp = u;
+    u = v;
+    v = temp;
+}
+
+__global__ void sortNeighbourList(MatrixCSR * matrix, MatrixCSR * neighbour_list, double * Si) {
+    int id = blockIdx.x * blockDim.x + threadIdx.x;
+    if(id >= matrix->rows)
+        return;
+
+    int row_start = matrix->i[id];
+    int row_end = matrix->i[id + 1];
+
+    for(int i = row_start; i < row_end; i++) {
+        for(int j = i + 1; j < row_end; j++) {
+            int id1 = neighbour_list->j[i];
+            int id2 = neighbour_list->j[j];
+            if(muij(id, id2, matrix, Si) < muij(id, id1, matrix, Si)) {
+                swap_variables(neighbour_list->j[i], neighbour_list->j[j]);
+                swap_variables(neighbour_list->val[i], neighbour_list->val[j]);
+            }
+        }
+    }
 }
