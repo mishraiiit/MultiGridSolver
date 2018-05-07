@@ -42,7 +42,7 @@ int main() {
 	TicToc readtime("Read time total");
 	readtime.tic();
 
-	string filename = "../../matrices/poisson10000.mtx";
+	string filename = "../../matrices/CSky3d30.mtx";
 
 	auto tempCSRCPU = readMatrixCPUMemoryCSR(filename);
 	auto tempCSCCPU = readMatrixCPUMemoryCSC(filename);

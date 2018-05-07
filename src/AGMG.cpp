@@ -158,7 +158,7 @@ namespace AGMG {
                     if(A.coeff(i, i) - si + A.coeff(j, j) - sj >= 0) {
                         // Finding the best j.
                         double current_mu_ij = mu(A, s, i, j);
-                        if((best_j == -1) || (current_mu_ij < best_mu_ij)) {
+                        if((best_j == -1 && current_mu_ij > 0) || (current_mu_ij > 0 && current_mu_ij < best_mu_ij)) {
                             best_j = j;
                             best_mu_ij = current_mu_ij;
                         }
@@ -232,7 +232,7 @@ namespace AGMG {
                     if(A_bar.coeff(i, i) - si + A_bar.coeff(j, j) - sj >= 0) {
                         // Finding the best j.
                         double current_mu_ij = mu(A_bar, si_bar, i, j);
-                        if((best_j == -1) || (current_mu_ij < best_mu_ij)) {
+                        if((best_j == -1 && current_mu_ij > 0) || (current_mu_ij > 0 && current_mu_ij < best_mu_ij)) {
                             best_j = j;
                             best_mu_ij = current_mu_ij;
                         }
@@ -242,7 +242,7 @@ namespace AGMG {
 
             nc = nc + 1;
 
-            if((best_j != -1) && (0 <= best_mu_ij && best_mu_ij <= ktg)) {
+            if((best_j != -1) && (best_mu_ij <= ktg)) {
                 SparseVector<double> row_i = P_bar_trans.row(i);
                 SparseVector<double> row_j = P_bar_trans.row(best_j);
 

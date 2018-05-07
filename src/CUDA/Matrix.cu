@@ -659,12 +659,12 @@ __global__ void printNeighbourList(MatrixCSR * matrix, MatrixCSR * neighbour_lis
         int row_start = neighbour_list->i[id];
         int row_end = neighbour_list->i[id + 1];
 
-        //printf("Neighbours for %d\n", id);
+        printf("Neighbours for %d\n", id);
         for(int i = row_start; i < row_end; i++) {
-            //printf("%d %lf\n", neighbour_list->j[i], muij(id, neighbour_list->j[i], matrix, Si));        
+            printf("%d %lf\n", neighbour_list->j[i], muij(id, neighbour_list->j[i], matrix, Si));        
         }
     }
-    //printf("\n");
+    printf("\n");
 }
 
 class TicToc {
