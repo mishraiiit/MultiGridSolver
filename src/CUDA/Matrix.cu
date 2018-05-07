@@ -484,3 +484,61 @@ __device__ double getElementMatrixCSC(MatrixCSC * matrix, int i, int j) {
     else
         return 0.0;
 }
+
+__global__ void comptueRowColumnAbsSum(MatrixCSR * matrix_csr, MatrixCSC * matrix_csc, double * output) {
+
+    int id = blockIdx.x * blockDim.x + threadIdx.x;
+    if(id >= matrix_csr->rows)
+        return;
+
+
+    int row_start = matrix_csr->i[id];
+    int row_end = matrix_csr->i[id + 1];
+
+    int col_start = matrix_csc->j[id];
+    int col_end = matrix_csc->j[id + 1];
+
+    double ans = 0;
+    while(row_start < row_end || col_start < col_end) {
+        if(row_start < row_end && col_start < col_end) {
+            if(matrix_csr->j[row_start] < matrix_csc->i[col_start]) {
+                if(matrix_csr->j[row_start] != id)
+                    ans += abs(matrix_csr->val[row_start]) / 2;
+                row_start++;
+            } else if(matrix_csr->j[row_start] > matrix_csc->i[col_start]) {
+                if(matrix_csc->i[col_start] != id)
+                    ans += abs(matrix_csc->val[col_start]) / 2;
+                col_start++;
+            } else {
+                if(matrix_csr->j[row_start] != id)
+                    ans += abs(matrix_csr->val[row_start] + matrix_csc->val[col_start]) / 2;
+                row_start++;
+                col_start++;
+            }
+        } 
+        else if(row_start < row_end) {
+            if(matrix_csr->j[row_start] != id)
+                ans += abs(matrix_csr->val[row_start]) / 2;
+            row_start++;
+        } else {
+            if(matrix_csc->i[col_start] != id)
+                ans += abs(matrix_csc->val[col_start]) / 2;
+            col_start++;
+        }
+    }
+
+    //output[id] = ans;
+    printf("output[%d] : %lf\n", id, ans);
+}
+
+__global__ void comptueSi(MatrixCSR * matrix_csr, MatrixCSC * matrix_csc, double * output) {
+    int id = blockIdx.x * blockDim.x + threadIdx.x;
+    if(id >= matrix_csr->rows) return;
+    double ans = 0;
+
+    output[id] = ans;
+}
+
+__device__ double muij(int i, int j, MatrixCSR * matrix_csr, MatrixCSC * matrix_csc, double * Si) {
+    return 0.0;
+}

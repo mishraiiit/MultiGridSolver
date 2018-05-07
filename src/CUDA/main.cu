@@ -37,5 +37,10 @@ int main() {
 	debugCSC <<<1,1>>> (tempCSC);
 	cudaDeviceSynchronize();
 
+	int number_of_blocks = 1;
+	int number_of_threads = 1024;
+	comptueRowColumnAbsSum <<<number_of_blocks, number_of_threads>>> (tempCSR, tempCSC, NULL);
+	cudaDeviceSynchronize();
+	
 	return 0;
 }
