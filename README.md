@@ -16,7 +16,10 @@ Status :
 Serial implementation is completed (uses Eigen library).
 
 Currently working:
-Effects of CMK on the final prolongation matrix.
+Started parallel.
+Kernel functions written for Si and comptueRowColAbsSum.
+Tested MIS in serial. Works.
 
 Next steps:
-Start parallel implementation.
+Kernel for parallel matching.
+Implement MIS in parallel. Read [here](http://on-demand.gputechconf.com/gtc/2017/presentation/s7286-martin-burtscher-a-high-quality-and-fast-maximal-independent-set-algorithm-for-gpus.pdf).
