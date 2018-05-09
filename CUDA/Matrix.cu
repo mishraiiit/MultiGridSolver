@@ -484,12 +484,11 @@ __host__ __device__ double getElementMatrixCSC(MatrixCSC * matrix, int i, int j)
         return 0.0;
 }
 
-__global__ void comptueRowColumnAbsSum(MatrixCSR * matrix_csr, MatrixCSC * matrix_csc, double * output) {
+__global__ void computeRowColAbsSum(MatrixCSR * matrix_csr, MatrixCSC * matrix_csc, bool * ising0, double ktg) {
 
     int id = blockIdx.x * blockDim.x + threadIdx.x;
     if(id >= matrix_csr->rows)
         return;
-
 
     int row_start = matrix_csr->i[id];
     int row_end = matrix_csr->i[id + 1];
@@ -525,9 +524,9 @@ __global__ void comptueRowColumnAbsSum(MatrixCSR * matrix_csr, MatrixCSC * matri
             col_start++;
         }
     }
-
-    output[id] = ans;
-    //printf("output[%d] : %lf\n", id, ans);
+    double aii = getElementMatrixCSR(matrix_csr, id, id);
+    double rhs = (ktg / (ktg - 2)) * ans;
+    ising0[id] = aii >= rhs;
 }
 
 __global__ void comptueSi(MatrixCSR * matrix_csr, MatrixCSC * matrix_csc, double * output) {
@@ -633,7 +632,7 @@ __device__ void swap_variables(T & u, T & v) {
     v = temp;
 }
 
-__global__ void sortNeighbourList(MatrixCSR * matrix, MatrixCSR * neighbour_list, double * Si) {
+__global__ void sortNeighbourList(MatrixCSR * matrix, MatrixCSR * neighbour_list, double * Si, bool * allowed, double ktg, bool * ising0) {
     int id = blockIdx.x * blockDim.x + threadIdx.x;
     if(id >= matrix->rows)
         return;
@@ -650,6 +649,15 @@ __global__ void sortNeighbourList(MatrixCSR * matrix, MatrixCSR * neighbour_list
                 swap_variables(neighbour_list->val[i], neighbour_list->val[j]);
             }
         }
+    }
+
+    for(int i = row_start; i < row_end; i++) {
+        int id1 = neighbour_list->j[i];
+        double mij = muij(id, id1, matrix, Si);
+        allowed[i] = (0 < mij && mij <= ktg);
+        if(ising0[id] || ising0[id1]) {
+            allowed[i] = false;
+        }
     }    
 }
 
@@ -665,6 +673,48 @@ __global__ void printNeighbourList(MatrixCSR * matrix, MatrixCSR * neighbour_lis
         }
     }
     printf("\n");
+}
+
+__global__ void mis(MatrixCSR * matrix, int * inmis) {
+    for(int i = 0; i < 10000; i++) {
+        if(((i / 100) + (i % 100)) % 2 == 0) {
+            inmis[i] = true;
+        } else {
+            inmis[i] = false;
+        }
+    }
+}
+
+__global__ void aggregation_initial(int n, int * paired_with) {
+    int id = blockDim.x * blockIdx.x + threadIdx.x;
+    if(id < n) {
+        paired_with[id] = id;
+    }
+}
+
+__device__ bool okay(int i, int j, MatrixCSR * matrix, double * Si) {
+    return (getElementMatrixCSR(matrix, i, i) - Si[i] + getElementMatrixCSR(matrix, j, j) - Si[j] >= 0);
+}
+
+__global__ void aggregation(int n, int * mis, MatrixCSR * neighbour_list, int * paired_with, bool * allowed, MatrixCSR * matrix, double * Si) {
+    int i = blockDim.x * blockIdx.x + threadIdx.x;
+    if(i >= n) return;
+
+    if(mis[i]) return;
+
+    for(int j = neighbour_list->i[i]; j < neighbour_list->i[i + 1]; j++) {
+        if(!allowed[j]) continue;
+        int possible_j = neighbour_list->j[j];
+        if(i == possible_j) continue;
+        if(!okay(i, possible_j, matrix, Si)) continue;
+        if(atomicCAS(&paired_with[possible_j], possible_j, i) == possible_j) {
+            paired_with[i] = possible_j;
+            printf("%d %d\n", i, possible_j);
+            return;
+        }
+    }
+
+    printf("%d %d\n", i, paired_with[i]);
 }
 
 class TicToc {

@@ -42,7 +42,7 @@ int main() {
 	TicToc readtime("Read time total");
 	readtime.tic();
 
-	string filename = "../../matrices/CSky3d30.mtx";
+	string filename = "../matrices/poisson10000.mtx";
 
 	auto tempCSRCPU = readMatrixCPUMemoryCSR(filename);
 	auto tempCSCCPU = readMatrixCPUMemoryCSC(filename);
@@ -65,7 +65,19 @@ int main() {
 	double * Si;
 	cudaMallocManaged(&Si, sizeof(double) * tempCSRCPU->rows);
 
+	bool * ising0;
+	cudaMallocManaged(&ising0, sizeof(bool) * tempCSRCPU->rows);
+
+	bool * allowed;
+	cudaMallocManaged(&allowed, sizeof(bool) * tempCSRCPU->nnz);
+
 	double * Si_host = (double *) malloc(sizeof(double) * tempCSRCPU->rows);
+
+	int * paired_with;
+	cudaMallocManaged(&paired_with, sizeof(int) * tempCSRCPU->rows);
+
+	int * inmis;
+	cudaMallocManaged(&inmis, sizeof(int) * tempCSRCPU->rows);
 
 	cudaalloctime.toc();
 
@@ -76,11 +88,10 @@ int main() {
 
 	int number_of_blocks = (tempCSRCPU->rows + 1024 - 1) / 1024;
 	int number_of_threads = 1024;
-	comptueRowColumnAbsSum <<<number_of_blocks, number_of_threads>>> (tempCSR, tempCSC, Si);
+	computeRowColAbsSum <<<number_of_blocks, number_of_threads>>> (tempCSR, tempCSC, ising0, 8.0);
 	cudaDeviceSynchronize();
 
 	rowcolsum.toc();
-
 
 	TicToc sicomputation("Si computation");
 	sicomputation.tic();
@@ -94,13 +105,17 @@ int main() {
 	TicToc sortcomputation("Sort computation");
 	sortcomputation.tic();
 
-	sortNeighbourList<<<number_of_blocks, number_of_threads>>> (tempCSR, neighbour_list, Si);
+	sortNeighbourList<<<number_of_blocks, number_of_threads>>> (tempCSR, neighbour_list, Si, allowed, 8, ising0);
 	//printNeighbourList<<<1,1>>> (tempCSR, neighbour_list, Si);
-
 	cudaDeviceSynchronize();
 
 	sortcomputation.toc();
 
+	mis<<<1,1>>> (tempCSR, inmis);
+
+	aggregation_initial<<<number_of_blocks, number_of_threads>>> (tempCSRCPU->rows, paired_with);
+	aggregation<<<number_of_blocks, number_of_threads>>> (tempCSRCPU->rows, inmis, neighbour_list, paired_with, allowed, tempCSR, Si);
+	cudaDeviceSynchronize();
 	// for(int i = 0; i < tempCSRCPU->rows; i++) {
 	// 	for(int j = 0; j < tempCSRCPU->rows; j++) {
 	// 		printf("%d %d %lf\n", i, j, muij(i, j, tempCSRCPU, Si_host));
