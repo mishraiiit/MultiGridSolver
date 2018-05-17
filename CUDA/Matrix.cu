@@ -688,7 +688,7 @@ __global__ void mis(MatrixCSR * matrix, int * inmis) {
 __global__ void aggregation_initial(int n, int * paired_with) {
     int id = blockDim.x * blockIdx.x + threadIdx.x;
     if(id < n) {
-        paired_with[id] = id;
+        paired_with[id] = -1;
     }
 }
 
@@ -696,24 +696,35 @@ __device__ bool okay(int i, int j, MatrixCSR * matrix, double * Si) {
     return (getElementMatrixCSR(matrix, i, i) - Si[i] + getElementMatrixCSR(matrix, j, j) - Si[j] >= 0);
 }
 
-__global__ void aggregation(int n, int * mis, MatrixCSR * neighbour_list, int * paired_with, bool * allowed, MatrixCSR * matrix, double * Si) {
+// aggregation<<<number_of_blocks, number_of_threads>>> (tempCSRCPU->rows, neighbour_list, paired_with, allowed, tempCSR, Si, i, ising0);
+
+__global__ void aggregation(int n, MatrixCSR * neighbour_list, int * paired_with, bool * allowed, MatrixCSR * matrix, double * Si, int distance, bool * ising0, int * bfs_distance) {
     int i = blockDim.x * blockIdx.x + threadIdx.x;
     if(i >= n) return;
-
-    if(mis[i]) return;
+    if(ising0[i]) return;
+    if(bfs_distance[i] != distance) return;
+    if(paired_with[i] != -1) return;
 
     for(int j = neighbour_list->i[i]; j < neighbour_list->i[i + 1]; j++) {
         if(!allowed[j]) continue;
         int possible_j = neighbour_list->j[j];
-        if(i == possible_j) continue;
+        if(bfs_distance[i] == bfs_distance[possible_j]) continue;
         if(!okay(i, possible_j, matrix, Si)) continue;
-        if(atomicCAS(&paired_with[possible_j], possible_j, i) == possible_j) {
+        if(atomicCAS(&paired_with[possible_j], -1, i) == -1) {
             paired_with[i] = possible_j;
-            printf("%d %d\n", i, possible_j);
+            paired_with[possible_j] = i;
+            // printf("%d %d\n", i, possible_j);
             return;
         }
     }
 
+    paired_with[i] = i;
+    // printf("%d %d\n", i, paired_with[i]);
+}
+
+__global__ void print_paired_with(int n, int * paired_with) {
+    int i = blockDim.x * blockIdx.x + threadIdx.x;
+    if(i >= n) return;
     printf("%d %d\n", i, paired_with[i]);
 }
 
@@ -734,3 +745,51 @@ class TicToc {
             printf("%s %lf\n", s.c_str(), diff.count());            
         }
 };
+
+template<typename T, typename U>
+__global__ void assign(T * node, U value) {
+    * node = value;
+}
+
+__global__ void bfs_frontier_kernel(MatrixCSR * matrix, bool * visited, int * distance, bool * frontier, int * new_found) {
+    int i = blockDim.x * blockIdx.x + threadIdx.x;
+    if(i >= matrix->rows) return;
+    if(frontier[i]) {
+        visited[i] = true;
+        frontier[i] = false;
+        * new_found = 1;
+        for(int j = matrix->i[i]; j < matrix->i[i + 1]; j++) {
+            int nj = matrix->j[j];
+            if(!visited[nj]) {
+                frontier[nj] = true;
+                distance[nj] = distance[i] + 1;
+            }
+        }
+    }
+}
+
+int * bfs(int n, MatrixCSR * matrix_gpu) {
+    bool * visited;
+    cudaMalloc(&visited, sizeof(bool) * n);
+
+    int * distance;
+    cudaMalloc(&distance, sizeof(int) * n);
+
+    bool * frontier;
+    cudaMalloc(&frontier, sizeof(int) * n);
+
+    assign<<<1,1>>> (&frontier[0], 1);
+    assign<<<1,1>>> (&distance[0], 0);
+
+    int * new_found;
+    cudaMallocManaged(&new_found, sizeof(int));
+
+    do {
+        * new_found = false;
+        bfs_frontier_kernel <<<(n + 1024 - 1)/ 1024, 1024>>>(matrix_gpu, visited, distance, frontier, new_found);
+        cudaDeviceSynchronize();
+    } while(* new_found);
+
+    return distance;
+
+}

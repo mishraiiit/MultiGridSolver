@@ -62,6 +62,8 @@ int main() {
 	TicToc cudaalloctime("cudaalloctime");
 	cudaalloctime.tic();
 
+	int * paired_with_cpu = (int *) malloc(tempCSRCPU->rows * sizeof(int));
+
 	double * Si;
 	cudaMallocManaged(&Si, sizeof(double) * tempCSRCPU->rows);
 
@@ -85,42 +87,52 @@ int main() {
 
 	TicToc rowcolsum("Row Col abs sum");
 	rowcolsum.tic();
-
 	int number_of_blocks = (tempCSRCPU->rows + 1024 - 1) / 1024;
 	int number_of_threads = 1024;
 	computeRowColAbsSum <<<number_of_blocks, number_of_threads>>> (tempCSR, tempCSC, ising0, 8.0);
 	cudaDeviceSynchronize();
-
 	rowcolsum.toc();
 
 	TicToc sicomputation("Si computation");
 	sicomputation.tic();
-
 	comptueSi<<<number_of_blocks, number_of_threads>>> (tempCSR, tempCSC, Si);
 	// debugmuij<<<1,1>>> (tempCSR, Si);
 	cudaDeviceSynchronize();
-
 	sicomputation.toc();
+
+	TicToc bfstime("BFS time...");
+	bfstime.tic();
+	int * bfs_distance = bfs(tempCSRCPU->rows, tempCSR);
+	bfstime.toc();
+	cudaDeviceSynchronize();
 
 	TicToc sortcomputation("Sort computation");
 	sortcomputation.tic();
-
 	sortNeighbourList<<<number_of_blocks, number_of_threads>>> (tempCSR, neighbour_list, Si, allowed, 8, ising0);
-	//printNeighbourList<<<1,1>>> (tempCSR, neighbour_list, Si);
 	cudaDeviceSynchronize();
 
 	sortcomputation.toc();
 
-	mis<<<1,1>>> (tempCSR, inmis);
-
 	aggregation_initial<<<number_of_blocks, number_of_threads>>> (tempCSRCPU->rows, paired_with);
-	aggregation<<<number_of_blocks, number_of_threads>>> (tempCSRCPU->rows, inmis, neighbour_list, paired_with, allowed, tempCSR, Si);
-	cudaDeviceSynchronize();
-	// for(int i = 0; i < tempCSRCPU->rows; i++) {
-	// 	for(int j = 0; j < tempCSRCPU->rows; j++) {
-	// 		printf("%d %d %lf\n", i, j, muij(i, j, tempCSRCPU, Si_host));
-	// 	}
-	// }
-	
+	for(int i = 0; i < 200; i++) {
+		aggregation<<<number_of_blocks, number_of_threads>>> (tempCSRCPU->rows, neighbour_list, paired_with, allowed, tempCSR, Si, i, ising0, bfs_distance);
+	}
+
+	cudaMemcpy(paired_with_cpu, paired_with, sizeof(int) * tempCSRCPU->rows, cudaMemcpyDeviceToHost);
+	int ans = 0;
+	for(int i = 0; i < tempCSRCPU->rows; i++) {
+		if(paired_with[i] == -1) {
+			
+		} else {
+			if(i == paired_with[i]) {
+				printf("%d %d 1\n", i + 1, ans + 1);
+				ans++;
+			} else if(i < paired_with[i]) {
+				printf("%d %d 1\n", i + 1, ans + 1);
+				printf("%d %d 1\n", paired_with[i] + 1, ans + 1);
+				ans++;
+			}
+		}
+	}
 	return 0;
 }

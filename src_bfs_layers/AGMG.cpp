@@ -10,15 +10,17 @@ typedef SparseMatrix<double, RowMajor> SMatrix;
 
 namespace AGMG {
 
-    const int * const getCMKOrdering(const int n, const SMatrix & adj) {
+    const pair<int * const, int * const> getCMKOrdering(const int n, const SMatrix & adj) {
         int * const order = new int[n];
         bool * const visited = new bool[n];
+        int * const distances = new int[n];
         for(int i = 0; i < n; i++) {
             visited[i] = 0;
         }
 
         int start = 0;
         visited[start] = true;
+        distances[start] = true;
         int added = 0;
         int used = 0;
 
@@ -32,6 +34,7 @@ namespace AGMG {
             for(SparseVector<double>::InnerIterator i(rowvec); i; ++i) {
                 int v = i.index();
                 if(!visited[v]) {
+                    distances[v] = distances[u] + 1;
                     visited[v] = true;
                     order[added++] = v;
                 }
@@ -41,72 +44,7 @@ namespace AGMG {
         assert(used == n);
         assert(added == n);
         delete [] visited;
-        return order;
-    }
-
-    set<int> mis(const SMatrix & A) {
-        set<int> mis;
-        vector < set <int> > adj(A.rows());
-        set <int> all;
-        for(int i = 0; i < A.rows(); i++) {
-            all.insert(i);
-            const SparseVector<double> ne_row = A.row(i);
-            for(SparseVector<double>::InnerIterator it(ne_row); it; ++it) {
-                adj[i].insert(it.index());
-            }
-        }
-
-        while(!all.empty()) {
-            int mini = -1;
-            for(int i : all) {
-                if(mini == -1 || adj[i].size() < adj[mini].size()) {
-                    mini = i;
-                }
-            }
-            all.erase(mini);
-            for(int i : adj[mini]) {
-                all.erase(i);
-            }
-            mis.insert(mini);
-        }
-        return mis;
-    }
-
-    vector<int> mis1(const SMatrix & A) {
-        vector<int> mis;
-        vector < set <int> > adj(A.rows());
-        vector < int > distance(A.rows(), 0);
-        vector < bool > visited(A.rows(), false);
-
-        for(int i = 0; i < A.rows(); i++) {
-            const SparseVector<double> ne_row = A.row(i);
-            for(SparseVector<double>::InnerIterator it(ne_row); it; ++it) {
-                adj[i].insert(it.index());
-            }
-        }
-
-        deque<int> Q = {0};
-        distance[0] = 0;
-        visited[0] = true;
-        mis.push_back(0);
-
-        while(!Q.empty()) {
-            int u = Q.front();
-            Q.pop_front();
-
-            for(int v : adj[u]) {
-                if(!visited[v]) {
-                    distance[v] = distance[u] + 1;
-                    visited[v] = true;
-                    Q.push_back(v);
-                    if(distance[v] % 2 == 0) {
-                        mis.push_back(v);
-                    }
-                }
-            }
-        }
-
-        return mis;
+        return {order, distances};
     }
 
     inline const double abs_row_col_sum(const SMatrix & A, const SMatrix & A_trans, const int i) {
@@ -165,7 +103,9 @@ namespace AGMG {
     const SMatrix initial_pairwise_aggregation
     (const SMatrix & A, const double ktg) {
         const int n = A.rows();
-        const int * const cmk = getCMKOrdering(n, A);
+        auto result = getCMKOrdering(n, A);
+        const int * const cmk = result.first;
+        const int * const dist = result.second;
 
         SMatrix A_trans = A.transpose();
 
@@ -198,9 +138,9 @@ namespace AGMG {
         }
 
         /* Iteration part of this routine now. */
-        auto miset = mis1(A);
-        cerr << "miset size :" << miset.size() << endl;
-        for(int i : miset) {
+
+        for(int i_index = 0; i_index < n; i_index++) {
+            int i = cmk[i_index];
             if(!in_u[i]) continue;
             /* The value of j for which mu ({i, j}) is minimized.
                best_mu_ij would store the minimum mu ({i, j}) value.
@@ -217,10 +157,10 @@ namespace AGMG {
                 int j = j_it.index();
                 if(!in_u[j]) continue;
                 if((j != i) && (A.coeff(i, j) != 0)) {
-                    //assert(i < j);
+                    assert(i < j);
                     double si = s[i];
                     double sj = s[j];
-                    if(A.coeff(i, i) - si + A.coeff(j, j) - sj >= 0) {
+                    if((A.coeff(i, i) - si + A.coeff(j, j) - sj >= 0) && (dist[i] != dist[j])) {
                         // Finding the best j.
                         double current_mu_ij = mu(A, s, i, j);
                         if((best_j == -1 && current_mu_ij > 0) || (current_mu_ij > 0 && current_mu_ij < best_mu_ij)) {
@@ -240,13 +180,6 @@ namespace AGMG {
                 groups[i] = nc - 1;
                 in_u[i] = false;
             }
-        }
-
-        for(int i = 0; i < n; i++) {
-        	if(in_u[i] && groups[i] == -1) {
-        		groups[i] = nc;
-        		nc++;
-        	}
         }
 
         SMatrix P(n, nc);
@@ -270,6 +203,10 @@ namespace AGMG {
         const int nc_bar = P_bar.cols();
         const SMatrix A_bar_trans = A_bar.transpose();
 
+        auto result = getCMKOrdering(nc_bar, A_bar);
+        const int * const cmk = result.first;
+        const int * const dist = result.second;
+
         int * const groups = new int[n];
         bool * const in_u = new bool[nc_bar];
 
@@ -288,11 +225,10 @@ namespace AGMG {
             si_bar[i] = row_col_sum(A_bar, A_bar_trans, i);
         }
 
-        auto miset = mis1(A_bar);
-        cerr << "miset size :" << miset.size() << endl;
-
-        for(int i : miset) {
+        for(int i_index = 0; i_index < nc_bar; i_index++) {
+            int i = cmk[i_index];
             if(!in_u[i]) continue;
+
             int best_j = -1;
             double best_mu_ij;
 
@@ -303,7 +239,7 @@ namespace AGMG {
                 if((j != i) && (A_bar.coeff(i, j) != 0)) {
                     double si = si_bar[i];
                     double sj = si_bar[j];
-                    if(A_bar.coeff(i, i) - si + A_bar.coeff(j, j) - sj >= 0) {
+                    if((A_bar.coeff(i, i) - si + A_bar.coeff(j, j) - sj >= 0) && (dist[i] != dist[j])) {
                         // Finding the best j.
                         double current_mu_ij = mu(A_bar, si_bar, i, j);
                         if((best_j == -1 && current_mu_ij > 0) || (current_mu_ij > 0 && current_mu_ij < best_mu_ij)) {
@@ -338,24 +274,17 @@ namespace AGMG {
             }
 
         }
-
-        // for(int i = 0; i < n; i++) {
-        // 	if(in_u[i] && groups[i] == -1) {
-        // 		groups[i] = nc;
-        // 		nc++;
-        // 	}
-        // }
         
         SMatrix P(n, nc);
         for(int i = 0; i < n; i++) {
             if(groups[i] != -1) {
                 P.insert(i, groups[i]) = 1;
-            }  
+            }
         }
         
         delete [] in_u;
         delete [] si_bar;
-        delete [] groups;      
+        delete [] groups;
         return P;
     }
 
