@@ -1,6 +1,6 @@
-#ifndef MatrixAccess
+#ifndef MATRIX_ACCESS
 #include "MatrixIO.cu"
-#define MatrixAccess
+#define MATRIX_ACCESS
 
 /*
     Description : This function can be used to access a particular element  in
