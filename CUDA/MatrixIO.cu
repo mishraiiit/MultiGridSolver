@@ -1,10 +1,32 @@
-#ifndef MatrixIO 
-#define MatrixIO
+/*
+    Description : This file contains the functions to access an element in
+    the matrix formats present in MatrixIo.cu file.
+
+    @author : mishraiiit
+*/
+
+#ifndef MATRIX_IO
+#define MATRIX_IO
 #include <assert.h>
 #include <iostream>
 #include <chrono>
 #include <algorithm>
 #include <fstream>
+
+/*
+    Description : Struct declaration for a matrix in COO format. The matrix is
+    assumed to be zero-indexed i.e rows start from 0 and not 1.
+
+    Parameters : 
+        int rows : The number of rows in the matrix.
+        int cols : The number of cols in the matrix.
+        int nnz : The number of non-zero entries in the matrix.
+        int * i : rowInd for the matrix. Size is nnz.
+        int * j : colInd for the matrix. Size is nnz.
+        float * val : values for the matrix. Size is nnz.
+
+    @author : mishraiiit
+*/
 
 struct MatrixCOO {
     int rows, cols, nnz;
@@ -12,11 +34,43 @@ struct MatrixCOO {
     float * val;
 };
 
+
+/*
+    Description : Struct declaration for a matrix in CSR format. The matrix is
+    assumed to be zero-indexed i.e rows start from 0 and not 1.
+
+    Parameters : 
+        int rows : The number of rows in the matrix.
+        int cols : The number of cols in the matrix.
+        int nnz : The number of non-zero entries in the matrix.
+        int * i : rowPtr for the matrix. Size is (rows + 1).
+        int * j : colInd for the matrix. Size is nnz.
+        float * val : The values at the corresponding colInd. Size is nnz.
+
+    @author : mishraiiit
+*/
+
 struct MatrixCSR {
     int rows, cols, nnz;
     int * i, * j;
     float * val;
 };
+
+
+/*
+    Description : Struct declaration for a matrix in CSC format. The matrix is
+    assumed to be zero-indexed i.e rows start from 0 and not 1.
+
+    Parameters : 
+        int rows : The number of rows in the matrix.
+        int cols : The number of cols in the matrix.
+        int nnz : The number of non-zero entries in the matrix.
+        int * i : rowInd for the matrix. Size is nnz.
+        int * j : colPtr for the matrix. Size is (cols + 1).
+        float * val : The values at the corresponding rowInd. Size is nnz.
+
+    @author : mishraiiit
+*/
 
 struct MatrixCSC {
     int rows, cols, nnz;
@@ -140,9 +194,12 @@ MatrixCOO * readMatrixGPUMemoryCOO(std::string filename) {
     cudaMalloc(&device_j, sizeof(int) * matrix_coo_cpu->nnz);
     cudaMalloc(&device_val, sizeof(float) * matrix_coo_cpu->nnz);
 
-    cudaMemcpy(device_i, matrix_coo_cpu->i, sizeof(int) * matrix_coo_cpu->nnz, cudaMemcpyHostToDevice);
-    cudaMemcpy(device_j, matrix_coo_cpu->j, sizeof(int) * matrix_coo_cpu->nnz, cudaMemcpyHostToDevice);
-    cudaMemcpy(device_val, matrix_coo_cpu->val, sizeof(float) * matrix_coo_cpu->nnz, cudaMemcpyHostToDevice);
+    cudaMemcpy(device_i, matrix_coo_cpu->i,
+        sizeof(int) * matrix_coo_cpu->nnz, cudaMemcpyHostToDevice);
+    cudaMemcpy(device_j, matrix_coo_cpu->j,
+        sizeof(int) * matrix_coo_cpu->nnz, cudaMemcpyHostToDevice);
+    cudaMemcpy(device_val, matrix_coo_cpu->val,
+        sizeof(float) * matrix_coo_cpu->nnz, cudaMemcpyHostToDevice);
 
 
     free(matrix_coo_cpu->i);
@@ -154,7 +211,8 @@ MatrixCOO * readMatrixGPUMemoryCOO(std::string filename) {
     matrix_coo_cpu->val = device_val;
 
     cudaMalloc(&matrix_coo, sizeof(MatrixCOO));
-    cudaMemcpy(matrix_coo, matrix_coo_cpu, sizeof(MatrixCOO), cudaMemcpyHostToDevice);
+    cudaMemcpy(matrix_coo, matrix_coo_cpu, sizeof(MatrixCOO),
+        cudaMemcpyHostToDevice);
 
     free(matrix_coo_cpu);
 
@@ -284,9 +342,12 @@ MatrixCSR * readMatrixGPUMemoryCSR(std::string filename) {
     cudaMalloc(&device_j, sizeof(int) * matrix_csr_cpu->nnz);
     cudaMalloc(&device_val, sizeof(float) * matrix_csr_cpu->nnz);
 
-    cudaMemcpy(device_i, matrix_csr_cpu->i, sizeof(int) * (matrix_csr_cpu->rows + 1), cudaMemcpyHostToDevice);
-    cudaMemcpy(device_j, matrix_csr_cpu->j, sizeof(int) * matrix_csr_cpu->nnz, cudaMemcpyHostToDevice);
-    cudaMemcpy(device_val, matrix_csr_cpu->val, sizeof(float) * matrix_csr_cpu->nnz, cudaMemcpyHostToDevice);
+    cudaMemcpy(device_i, matrix_csr_cpu->i,
+        sizeof(int) * (matrix_csr_cpu->rows + 1), cudaMemcpyHostToDevice);
+    cudaMemcpy(device_j, matrix_csr_cpu->j,
+        sizeof(int) * matrix_csr_cpu->nnz, cudaMemcpyHostToDevice);
+    cudaMemcpy(device_val, matrix_csr_cpu->val,
+        sizeof(float) * matrix_csr_cpu->nnz, cudaMemcpyHostToDevice);
 
 
     free(matrix_csr_cpu->i);
@@ -298,7 +359,8 @@ MatrixCSR * readMatrixGPUMemoryCSR(std::string filename) {
     matrix_csr_cpu->val = device_val;
 
     cudaMalloc(&matrix_csr, sizeof(MatrixCSR));
-    cudaMemcpy(matrix_csr, matrix_csr_cpu, sizeof(MatrixCSR), cudaMemcpyHostToDevice);
+    cudaMemcpy(matrix_csr, matrix_csr_cpu, sizeof(MatrixCSR),
+        cudaMemcpyHostToDevice);
 
     free(matrix_csr_cpu);
 
@@ -427,9 +489,12 @@ MatrixCSC * readMatrixGPUMemoryCSC(std::string filename) {
     cudaMalloc(&device_j, sizeof(int) * matrix_csc_cpu->nnz);
     cudaMalloc(&device_val, sizeof(float) * matrix_csc_cpu->nnz);
 
-    cudaMemcpy(device_i, matrix_csc_cpu->i, sizeof(int) * matrix_csc_cpu->nnz, cudaMemcpyHostToDevice);
-    cudaMemcpy(device_j, matrix_csc_cpu->j, sizeof(int) * (matrix_csc_cpu->cols + 1), cudaMemcpyHostToDevice);
-    cudaMemcpy(device_val, matrix_csc_cpu->val, sizeof(float) * matrix_csc_cpu->nnz, cudaMemcpyHostToDevice);
+    cudaMemcpy(device_i, matrix_csc_cpu->i,
+        sizeof(int) * matrix_csc_cpu->nnz, cudaMemcpyHostToDevice);
+    cudaMemcpy(device_j, matrix_csc_cpu->j,
+        sizeof(int) * (matrix_csc_cpu->cols + 1), cudaMemcpyHostToDevice);
+    cudaMemcpy(device_val, matrix_csc_cpu->val,
+        sizeof(float) * matrix_csc_cpu->nnz, cudaMemcpyHostToDevice);
 
     free(matrix_csc_cpu->i);
     free(matrix_csc_cpu->j);
@@ -440,7 +505,8 @@ MatrixCSC * readMatrixGPUMemoryCSC(std::string filename) {
     matrix_csc_cpu->val = device_val;
 
     cudaMalloc(&matrix_csc, sizeof(MatrixCSC));
-    cudaMemcpy(matrix_csc, matrix_csc_cpu, sizeof(MatrixCSC), cudaMemcpyHostToDevice);
+    cudaMemcpy(matrix_csc, matrix_csc_cpu, sizeof(MatrixCSC),
+        cudaMemcpyHostToDevice);
 
     free(matrix_csc_cpu);
 

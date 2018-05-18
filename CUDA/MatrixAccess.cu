@@ -1,3 +1,10 @@
+/*
+    Description : This file contains the functions to access an element in
+    the matrix formats present in MatrixIo.cu file.
+
+    @author : mishraiiit
+*/
+    
 #ifndef MATRIX_ACCESS
 #include "MatrixIO.cu"
 #define MATRIX_ACCESS
@@ -16,8 +23,6 @@
 
     Comments : It's expected from the user that i and j will be in bounds
     of the matrix.
-    
-    @author : mishraiiit
 */
 
 __host__ __device__ float getElementMatrixCSR(MatrixCSR * matrix, int i, int j) {
@@ -55,8 +60,6 @@ __host__ __device__ float getElementMatrixCSR(MatrixCSR * matrix, int i, int j) 
 
     Comments : It's expected from the user that i and j will be in bounds
     of the matrix.
-    
-    @author : mishraiiit
 */
 
 __host__ __device__ float getElementMatrixCSC(MatrixCSC * matrix, int i, int j) {
