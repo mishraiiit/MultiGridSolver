@@ -885,7 +885,7 @@ void print_gpu_variable(T * u) {
     cudaDeviceSynchronize();
 }
 
-MatrixCSR * deepCopyMatrixCSRGPUtoCPU(MatrixCSR * gpu_matrix) {
+MatrixCSR * deepCopyMatrixCSRGPUtoCPU(const MatrixCSR * const gpu_matrix) {
     MatrixCSR * cpu_matrix = (MatrixCSR *) malloc(sizeof(MatrixCSR));
     cudaMemcpy(cpu_matrix, gpu_matrix, sizeof(MatrixCSR), cudaMemcpyDeviceToHost);
     int * cpu_i = (int *) malloc(sizeof(int) * (cpu_matrix->rows + 1));
@@ -903,7 +903,7 @@ MatrixCSR * deepCopyMatrixCSRGPUtoCPU(MatrixCSR * gpu_matrix) {
     return cpu_matrix;
 }
 
-MatrixCSR * shallowCopyMatrixCSRGPUtoCPU(MatrixCSR * gpu_matrix) {
+MatrixCSR * shallowCopyMatrixCSRGPUtoCPU(const MatrixCSR * const gpu_matrix) {
     MatrixCSR * cpu_matrix = (MatrixCSR *) malloc(sizeof(MatrixCSR));
     cudaMemcpy(cpu_matrix, gpu_matrix, sizeof(MatrixCSR), cudaMemcpyDeviceToHost);
     return cpu_matrix;
