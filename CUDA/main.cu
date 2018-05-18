@@ -44,9 +44,8 @@ int main() {
 	std::string filename = "../matrices/poisson10000.mtx";
 
 	auto tempCSRCPU = readMatrixCPUMemoryCSR(filename);
-	auto tempCSCCPU = readMatrixCPUMemoryCSC(filename);
-	auto tempCSR = readMatrixGPUMemoryCSR(filename);
-	auto neighbour_list = readMatrixGPUMemoryCSR(filename);
+	auto tempCSR = deepCopyMatrixCSRCPUtoGPU(tempCSRCPU);
+	auto neighbour_list = deepCopyMatrixCSRCPUtoGPU(tempCSRCPU);
 	auto tempCSC = readMatrixGPUMemoryCSC(filename);
 	// debugCSR <<<1,1>>> (tempCSR);
 	// cudaDeviceSynchronize();
@@ -209,8 +208,8 @@ int main() {
 	cudaMemcpy(P_cpu->j, new_j, sizeof(int) * P_cpu->nnz, cudaMemcpyDeviceToHost);
 	cudaMemcpy(P_cpu->val, new_val, sizeof(float) * P_cpu->nnz, cudaMemcpyDeviceToHost);
 
-	// printCSRCPU(P_cpu);
-	
+ 	printCSRCPU(deepCopyMatrixCSRGPUtoCPU(deepCopyMatrixCSRCPUtoGPU(P_cpu)));
+ 	printCSRCPU(transposeCSRCPU(P_cpu));
 
 	return 0;
 }
