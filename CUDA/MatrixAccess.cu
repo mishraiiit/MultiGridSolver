@@ -2,6 +2,24 @@
 #include "MatrixIO.cu"
 #define MatrixAccess
 
+/*
+    Description : This function can be used to access a particular element  in
+    a given CSR matrix by it's row and column. This function works both on
+    CPU and GPU.
+
+    Returns : The value at the element at (i, j).
+
+    Parameters : 
+        MatrixCSR * matrix : The input matrix.
+        int i : The row of the element to access.
+        int j : The col of the element to access.
+
+    Comments : It's expected from the user that i and j will be in bounds
+    of the matrix.
+    
+    @author : mishraiiit
+*/
+
 __host__ __device__ float getElementMatrixCSR(MatrixCSR * matrix, int i, int j) {
     int l = matrix->i[i];
     int r = matrix->i[i + 1];
@@ -21,6 +39,25 @@ __host__ __device__ float getElementMatrixCSR(MatrixCSR * matrix, int i, int j) 
     else
         return 0.0;
 }
+
+
+/*
+    Description : This function can be used to access a particular element  in
+    a given CSC matrix by it's row and column. This function works both on
+    CPU and GPU.
+
+    Returns : The value at the element at (i, j).
+
+    Parameters : 
+        MatrixCSC * matrix : The input matrix.
+        int i : The row of the element to access.
+        int j : The col of the element to access.
+
+    Comments : It's expected from the user that i and j will be in bounds
+    of the matrix.
+    
+    @author : mishraiiit
+*/
 
 __host__ __device__ float getElementMatrixCSC(MatrixCSC * matrix, int i, int j) {
     int l = matrix->j[j];
