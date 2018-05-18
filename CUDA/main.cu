@@ -1,3 +1,5 @@
+#include "MatrixIO.cu"
+#include "MatrixAccess.cu"
 #include "Matrix.cu"
 #include <thrust/scan.h>
 #include <thrust/execution_policy.h>
