@@ -1,6 +1,7 @@
 #include "MatrixIO.cu"
 #include "MatrixAccess.cu"
 #include "MatrixOperations.cu"
+#include "TicToc.cpp"
 #include "Aggregation.cu"
 #include <thrust/scan.h>
 #include <thrust/execution_policy.h>

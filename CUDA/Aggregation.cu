@@ -256,30 +256,6 @@ __global__ void aggregation(int n, MatrixCSR * neighbour_list, int * paired_with
 
 /*
     Comments:
-    A class for recording time. tic() for time start. toc() for time end.
-    For recording time taken on GPU.
-    After the kernel use device synchronization.
-*/
-class TicToc {
-    public:
-        std::chrono::time_point<std::chrono::system_clock> start, end;
-        std::string s;
-        TicToc(std::string s) : s(s) {
-
-        }
-        void tic() {
-            start = std::chrono::system_clock::now();            
-        }
-
-        void toc() {
-            end = std::chrono::system_clock::now();
-            std::chrono::duration<float> diff = end-start;
-            fprintf(stderr, "%s %lf\n", s.c_str(), diff.count());            
-        }
-};
-
-/*
-    Comments:
     A helper function to assign a value to a pointer on GPU.
     Particularly helpful when we need to change a pointer on GPU
     from CPU (saves you from useless memcopies).
