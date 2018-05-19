@@ -11,6 +11,9 @@
 
 int main() {
 
+	cusparseHandle_t  cudasparse_handle;
+    cusparseCreate(&cudasparse_handle);
+
 	TicToc readtime("Read time total");
 	readtime.tic();
 
@@ -29,6 +32,8 @@ int main() {
 
 	readtime.toc();
 
+	TicToc main_timer("Main timer");
+	main_timer.tic();
 
 	TicToc cudaalloctime("cudaalloctime");
 	cudaalloctime.tic();
@@ -62,7 +67,6 @@ int main() {
 	cudaMalloc(&aggregation_count, sizeof(int) * tempCSRCPU->rows);
 
 	cudaalloctime.toc();
-
 	
 	TicToc rowcolsum("Row Col abs sum");
 	rowcolsum.tic();
@@ -82,8 +86,8 @@ int main() {
 	TicToc bfstime("BFS time...");
 	bfstime.tic();
 	int * bfs_distance = bfs(tempCSRCPU->rows, tempCSR);
-	bfstime.toc();
 	cudaDeviceSynchronize();
+	bfstime.toc();
 
 	TicToc sortcomputation("Sort computation");
 	sortcomputation.tic();
@@ -111,6 +115,9 @@ int main() {
 	cudaMemcpy(useful_pairs_cpu_prefix, useful_pairs, sizeof(int) * tempCSRCPU->rows, cudaMemcpyDeviceToHost);
 	prefix_sum.toc();
 
+	TicToc P_matrix_creation_time("Time to P matrix");
+	P_matrix_creation_time.tic();
+
 	int nc;
 	cudaMemcpy(&nc, useful_pairs + tempCSRCPU->rows - 1, sizeof(int), cudaMemcpyDeviceToHost);
 	mark_aggregations <<<number_of_blocks, number_of_threads>>> (tempCSRCPU->rows, aggregations, useful_pairs);
@@ -125,64 +132,35 @@ int main() {
 	cudaMemcpy(&nnz_in_p_matrix, aggregation_count + nc - 1, sizeof(int), cudaMemcpyDeviceToHost);
 	
 
-	MatrixCSR * P_transpose_cpu = (MatrixCSR *) malloc(sizeof(MatrixCSR));
-	P_transpose_cpu->rows = nc;
-	P_transpose_cpu->cols = tempCSRCPU->rows;
-	P_transpose_cpu->nnz = nnz_in_p_matrix;
-	cudaMalloc(&P_transpose_cpu->i, sizeof(int) * (P_transpose_cpu->rows + 1));
-	cudaMalloc(&P_transpose_cpu->j, sizeof(int) * (P_transpose_cpu->nnz));
-	cudaMalloc(&P_transpose_cpu->val, sizeof(float) * (P_transpose_cpu->nnz));
-	create_p_matrix_transpose <<< (nc + 1024 - 1) / 1024, 1024>>> (nc, aggregations, paired_with, aggregation_count, P_transpose_cpu->i, P_transpose_cpu->j, P_transpose_cpu->val);
+	MatrixCSR * P_transpose_shallow_cpu = (MatrixCSR *) malloc(sizeof(MatrixCSR));
+	P_transpose_shallow_cpu->rows = nc;
+	P_transpose_shallow_cpu->cols = tempCSRCPU->rows;
+	P_transpose_shallow_cpu->nnz = nnz_in_p_matrix;
+	cudaMalloc(&P_transpose_shallow_cpu->i, sizeof(int) * (P_transpose_shallow_cpu->rows + 1));
+	cudaMalloc(&P_transpose_shallow_cpu->j, sizeof(int) * (P_transpose_shallow_cpu->nnz));
+	cudaMalloc(&P_transpose_shallow_cpu->val, sizeof(float) * (P_transpose_shallow_cpu->nnz));
+	create_p_matrix_transpose <<< (nc + 1024 - 1) / 1024, 1024>>> (nc, aggregations, paired_with, aggregation_count, P_transpose_shallow_cpu->i, P_transpose_shallow_cpu->j, P_transpose_shallow_cpu->val);
 	cudaDeviceSynchronize();
 
 	MatrixCSR * P_transpose_gpu;
 	cudaMalloc(&P_transpose_gpu, sizeof(MatrixCSR));	
-	cudaMemcpy(P_transpose_gpu, P_transpose_cpu, sizeof(MatrixCSR), cudaMemcpyHostToDevice);
-
-	P_transpose_cpu = deepCopyMatrixCSRGPUtoCPU(P_transpose_gpu);
+	cudaMemcpy(P_transpose_gpu, P_transpose_shallow_cpu, sizeof(MatrixCSR), cudaMemcpyHostToDevice);
+	cudaDeviceSynchronize();
+	P_matrix_creation_time.toc();
 
 	// printCSRCPU(P_transpose_cpu);
 
-	MatrixCSR * shallow_cpu = shallowCopyMatrixCSRGPUtoCPU(P_transpose_gpu);
-	
-	int * new_i;
-	int * new_j;
-	float * new_val;
-
-	std::cout << P_transpose_cpu->rows << " " << P_transpose_cpu->cols << " " << P_transpose_cpu->nnz << std::endl;
-
-	cudaMalloc(&new_i, sizeof(int) * (P_transpose_cpu->cols + 1));
-	cudaMalloc(&new_j, sizeof(int) * (P_transpose_cpu->nnz));
-	cudaMalloc(&new_val, sizeof(float) * (P_transpose_cpu->nnz));
-
-	assert(P_transpose_cpu->rows == shallow_cpu->rows);
-	assert(P_transpose_cpu->cols == shallow_cpu->cols);
-	assert(P_transpose_cpu->nnz == shallow_cpu->nnz);
-
-	cudaDeviceSynchronize();
 	TicToc time_transpose("Time taken csr2csc");
 	time_transpose.tic();
-	cusparseHandle_t  handle;
-    cusparseCreate(&handle);
-	cusparseStatus_t status = cusparseScsr2csc(handle, P_transpose_cpu->rows, P_transpose_cpu->cols, P_transpose_cpu->nnz, shallow_cpu->val, shallow_cpu->i, shallow_cpu->j, new_val, new_j, new_i, CUSPARSE_ACTION_NUMERIC, CUSPARSE_INDEX_BASE_ZERO);
-	cudaDeviceSynchronize();
+
+	MatrixCSR * P_gpu = transposeCSRGPU_cudaSparse(P_transpose_gpu, cudasparse_handle);
+	// MatrixCSR * P_gpu = deepCopyMatrixCSRCPUtoGPU(transposeCSRCPU(deepCopyMatrixCSRGPUtoCPU(P_transpose_gpu)));
+ 
 	time_transpose.toc();
+	main_timer.toc();
 
-	MatrixCSR * P_cpu = (MatrixCSR *) malloc(sizeof(MatrixCSR));
-	P_cpu->rows = P_transpose_cpu->cols;
-	P_cpu->cols = P_transpose_cpu->rows;
-	P_cpu->nnz = P_transpose_cpu->nnz;
-
-	P_cpu->i = (int *) malloc(sizeof(int) * (P_cpu->rows + 1));
-	P_cpu->j = (int *) malloc(sizeof(int) * P_cpu->nnz);
-	P_cpu->val = (float *) malloc(sizeof(float) * P_cpu->nnz);
-
-	cudaMemcpy(P_cpu->i, new_i, sizeof(int) * (P_cpu->rows + 1), cudaMemcpyDeviceToHost);
-	cudaMemcpy(P_cpu->j, new_j, sizeof(int) * P_cpu->nnz, cudaMemcpyDeviceToHost);
-	cudaMemcpy(P_cpu->val, new_val, sizeof(float) * P_cpu->nnz, cudaMemcpyDeviceToHost);
-
- 	printCSRCPU(deepCopyMatrixCSRGPUtoCPU(deepCopyMatrixCSRCPUtoGPU(P_cpu)));
- 	printCSRCPU(transposeCSRCPU(P_cpu));
+ 	// printCSRCPU(deepCopyMatrixCSRGPUtoCPU(deepCopyMatrixCSRCPUtoGPU(P_cpu)));
+ 	// printCSRCPU(deepCopyMatrixCSRGPUtoCPU(P_gpu));
 
 	return 0;
 }

@@ -95,7 +95,7 @@ void print_gpu_variable(T * u) {
 */
 
 template<typename T>
-__device__ void swap_variables(T & u, T & v) {
+__host__ __device__ void swap_variables(T & u, T & v) {
     T temp = u;
     u = v;
     v = temp;

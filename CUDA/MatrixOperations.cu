@@ -7,6 +7,8 @@
 #ifndef MATRIX_OPERATIONS
 #define MATRIX_OPERATIONS
 #include "MatrixIO.cu"
+#include "GPUDebug.cu"
+#include <cusparse.h>
 
 /*
     Description : It takes a matrix in CSR format and returns it's transpose.
@@ -221,6 +223,49 @@ MatrixCSR * shallowCopyMatrixCSRCPUtoGPU(const MatrixCSR * const my_cpu) {
     cudaMemcpy(gpu_matrix, cpu_matrix, sizeof(MatrixCSR), cudaMemcpyHostToDevice);
     free(cpu_matrix);
     return gpu_matrix;
+}
+
+
+/*
+    Description : It takes a matrix in CSR which is on GPU and returns it's
+    transpose on GPU.
+
+    Parameters : 
+        MatrixCSR * matrix : Matrix in CSR format on GPU.
+        cusparseHandle_t & handle : cudaSparse handle.
+
+    Returns : The transpose of input matrix in CSR format on GPU.
+
+    @author : mishraiiit
+*/
+
+MatrixCSR * transposeCSRGPU_cudaSparse(MatrixCSR * matrix_gpu, cusparseHandle_t & handle) {
+
+    MatrixCSR * shallow_cpu = shallowCopyMatrixCSRGPUtoCPU(matrix_gpu);
+
+    int * new_i;
+    int * new_j;
+    float * new_val;
+
+    cudaMalloc(&new_i, sizeof(int) * (shallow_cpu->cols + 1));
+    cudaMalloc(&new_j, sizeof(int) * (shallow_cpu->nnz));
+    cudaMalloc(&new_val, sizeof(float) * (shallow_cpu->nnz));
+
+    
+    cusparseStatus_t status = cusparseScsr2csc(handle, shallow_cpu->rows,
+        shallow_cpu->cols, shallow_cpu->nnz, shallow_cpu->val, shallow_cpu->i,
+        shallow_cpu->j, new_val, new_j, new_i,
+        CUSPARSE_ACTION_NUMERIC, CUSPARSE_INDEX_BASE_ZERO);
+    swap_variables(shallow_cpu->rows, shallow_cpu->cols);
+
+    shallow_cpu->i = new_i;
+    shallow_cpu->j = new_j;
+    shallow_cpu->val = new_val;
+
+    free(shallow_cpu);
+
+    MatrixCSR * to_return = shallowCopyMatrixCSRCPUtoGPU(shallow_cpu);
+    return to_return;
 }
 
 #endif
