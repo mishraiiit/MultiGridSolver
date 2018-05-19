@@ -4,6 +4,7 @@
 #include "TicToc.cpp"
 #include "GPUDebug.cu"
 #include "Aggregation.cu"
+#include "cudpp.h"
 #include <thrust/scan.h>
 #include <thrust/execution_policy.h>
 #include <cusparse.h>
