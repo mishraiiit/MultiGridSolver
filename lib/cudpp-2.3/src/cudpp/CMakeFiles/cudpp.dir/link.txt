@@ -1,2 +1,0 @@
-/usr/bin/ar qc ../../lib/libcudpp.a  
-/usr/bin/ranlib ../../lib/libcudpp.a
