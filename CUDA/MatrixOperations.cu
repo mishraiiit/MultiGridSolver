@@ -1,0 +1,226 @@
+/*
+    Description : This file contains functions related to matrix operations.
+
+    @author : mishraiiit
+*/
+
+#ifndef MATRIX_OPERATIONS
+#define MATRIX_OPERATIONS
+#include "MatrixIO.cu"
+
+/*
+    Description : It takes a matrix in CSR format and returns it's transpose.
+
+    Parameters : 
+        MatrixCSR * matrix : Matrix in CSR format.
+
+    Returns : The transpose of input matrix in CSR format.
+
+    @author : mishraiiit
+*/
+
+MatrixCSR * transposeCSRCPU(const MatrixCSR * const matrix) {
+
+    MatrixCSR * matrix_trans = (MatrixCSR *) malloc(sizeof(MatrixCSR));
+    matrix_trans->rows = matrix->cols;
+    matrix_trans->cols = matrix->rows;
+    matrix_trans->nnz = matrix->nnz;
+    matrix_trans->i = (int *) malloc(sizeof(int) * (matrix_trans->rows + 1));
+    matrix_trans->j = (int *) malloc(sizeof(int) * matrix_trans->nnz);
+    matrix_trans->val = (float *) malloc(sizeof(float) * matrix_trans->nnz);
+
+    int * col_sum = (int *) calloc(matrix->cols, sizeof(int));
+    int * col_freq = (int *) calloc(matrix->cols, sizeof(int));
+
+    for(int i = 0; i < matrix->rows; i++) {
+        for(int j = matrix->i[i]; j < matrix->i[i + 1]; j++) {
+            assert(matrix->j[j] < matrix->cols);
+            col_sum[matrix->j[j]]++;
+        }
+    }
+
+    matrix_trans->i[0] = 0;
+    matrix_trans->i[1] = col_sum[0];
+    for(int i = 1; i < matrix->cols; i++) {
+        col_sum[i] += col_sum[i - 1];
+        matrix_trans->i[i + 1]  = col_sum[i];
+    }
+    
+    assert(matrix_trans->i[matrix->cols] == matrix->nnz);
+
+    for(int i = 0; i < matrix->rows; i++) {
+        for(int j = matrix->i[i]; j < matrix->i[i + 1]; j++) {
+            int pos = matrix_trans->i[matrix->j[j]] + col_freq[matrix->j[j]];
+            assert(pos < matrix_trans->nnz);
+            matrix_trans->j[pos] = i;
+            matrix_trans->val[pos] = matrix->val[j];
+            col_freq[matrix->j[j]]++;
+        }
+    }
+
+    free(col_sum);
+    free(col_freq);
+
+    return matrix_trans;
+}
+
+/*
+    Description : Prints a matrix on stdout.
+
+    Parameters : 
+        MatrixCSR * matrix : Matrix in CSR format.
+
+    @author : mishraiiit
+*/
+
+void printCSRCPU(const MatrixCSR * const matrix) {
+    for(int i = 0; i < matrix->rows; i++) {
+        for(int j = matrix->i[i]; j < matrix->i[i + 1]; j++) {
+            std::cout << i + 1 << " " << matrix->j[j] + 1 << " " << \
+            matrix->val[j] << std::endl;
+        }
+    }
+}
+
+
+/*
+    Description : Copies a matrix on GPU to CPU. It will also create a copy
+    of the contents of the pointers inside the struct on GPU.
+
+    Parameters : 
+        MatrixCSR * matrix : Matrix in CSR format on GPU.
+
+    Returns : Matrix in CSR format on CPU.
+
+    @author : mishraiiit
+*/
+
+MatrixCSR * deepCopyMatrixCSRGPUtoCPU(const MatrixCSR * const gpu_matrix) {
+    MatrixCSR * cpu_matrix = (MatrixCSR *) malloc(sizeof(MatrixCSR));
+    cudaMemcpy(cpu_matrix, gpu_matrix, sizeof(MatrixCSR), cudaMemcpyDeviceToHost);
+    int * cpu_i = (int *) malloc(sizeof(int) * (cpu_matrix->rows + 1));
+    int * cpu_j = (int *) malloc(sizeof(int) * (cpu_matrix->nnz));
+    float * cpu_val = (float *) malloc(sizeof(float) * (cpu_matrix->nnz));
+
+    cudaMemcpy(cpu_i, cpu_matrix->i,
+    	sizeof(int) * (cpu_matrix->rows + 1), cudaMemcpyDeviceToHost);
+    cudaMemcpy(cpu_j, cpu_matrix->j,
+    	sizeof(int) * (cpu_matrix->nnz), cudaMemcpyDeviceToHost);
+    cudaMemcpy(cpu_val, cpu_matrix->val,
+    	sizeof(float) * (cpu_matrix->nnz), cudaMemcpyDeviceToHost);
+
+    cpu_matrix->i = cpu_i;
+    cpu_matrix->j = cpu_j;
+    cpu_matrix->val = cpu_val;
+
+    return cpu_matrix;
+}
+
+
+/*
+    Description : Copies a matrix on GPU to CPU. It will not copy the contents
+    of the underlying pointers, will just copy the pointers as is (i.e the
+    address, not the values).
+
+    Parameters : 
+        MatrixCSR * matrix : Matrix in CSR format on GPU.
+
+    Returns : Matrix in CSR format on CPU.
+
+    @author : mishraiiit
+*/
+
+MatrixCSR * shallowCopyMatrixCSRGPUtoCPU(const MatrixCSR * const gpu_matrix) {
+    MatrixCSR * cpu_matrix = (MatrixCSR *) malloc(sizeof(MatrixCSR));
+    cudaMemcpy(cpu_matrix, gpu_matrix, sizeof(MatrixCSR), cudaMemcpyDeviceToHost);
+    return cpu_matrix;
+}
+
+
+/*
+    Description : Copies a matrix on CPU to GPU. It will also create a copy
+    of the contents of the pointers inside the struct on CPU.
+
+    Parameters : 
+        MatrixCSR * matrix : Matrix in CSR format on CPU.
+
+    Returns : Matrix in CSR format on GPU.
+
+    @author : mishraiiit
+*/
+
+MatrixCSR * deepCopyMatrixCSRCPUtoGPU(const MatrixCSR * const my_cpu) {
+    MatrixCSR * cpu_matrix = (MatrixCSR *) malloc(sizeof(MatrixCSR));
+    memcpy(cpu_matrix, my_cpu, sizeof(MatrixCSR));
+    MatrixCSR * gpu_matrix;
+    cudaMalloc(&gpu_matrix, sizeof(MatrixCSR));
+
+    int * gpu_i;
+    int * gpu_j;
+    float * gpu_val;
+
+    cudaMalloc(&gpu_i, sizeof(int) * (cpu_matrix->rows + 1));
+    cudaMalloc(&gpu_j, sizeof(int) * (cpu_matrix->nnz));
+    cudaMalloc(&gpu_val, sizeof(float) * (cpu_matrix->nnz));
+
+    cudaMemcpy(gpu_i, cpu_matrix->i,
+    	sizeof(int) * (cpu_matrix->rows + 1), cudaMemcpyHostToDevice);
+    cudaMemcpy(gpu_j, cpu_matrix->j,
+    	sizeof(int) * (cpu_matrix->nnz), cudaMemcpyHostToDevice);
+    cudaMemcpy(gpu_val, cpu_matrix->val,
+    	sizeof(float) * (cpu_matrix->nnz), cudaMemcpyHostToDevice);
+
+    cpu_matrix->i = gpu_i;
+    cpu_matrix->j = gpu_j;
+    cpu_matrix->val = gpu_val;
+
+    cudaMemcpy(gpu_matrix, cpu_matrix, sizeof(MatrixCSR), cudaMemcpyHostToDevice);
+    free(cpu_matrix);
+    return gpu_matrix;
+}
+
+
+/*
+    Description : Copies a matrix on CPU to GPU. It will not copy the contents
+    of the underlying pointers, will just copy the pointers as is (i.e the
+    address, not the values).
+
+    Parameters : 
+        MatrixCSR * matrix : Matrix in CSR format on CPU.
+
+    Returns : Matrix in CSR format on GPU.
+
+    @author : mishraiiit
+*/
+
+MatrixCSR * shallowCopyMatrixCSRCPUtoGPU(const MatrixCSR * const my_cpu) {
+    MatrixCSR * cpu_matrix = (MatrixCSR *) malloc(sizeof(MatrixCSR));
+    memcpy(cpu_matrix, my_cpu, sizeof(MatrixCSR));
+    MatrixCSR * gpu_matrix;
+    cudaMalloc(&gpu_matrix, sizeof(MatrixCSR));
+
+    int * gpu_i;
+    int * gpu_j;
+    float * gpu_val;
+
+    cudaMalloc(&gpu_i, sizeof(int) * (cpu_matrix->rows + 1));
+    cudaMalloc(&gpu_j, sizeof(int) * (cpu_matrix->nnz));
+    cudaMalloc(&gpu_val, sizeof(float) * (cpu_matrix->nnz));
+
+    cudaMemcpy(gpu_i, cpu_matrix->i,
+    	sizeof(int) * (cpu_matrix->rows + 1), cudaMemcpyHostToDevice);
+    cudaMemcpy(gpu_j, cpu_matrix->j,
+    	sizeof(int) * (cpu_matrix->nnz), cudaMemcpyHostToDevice);
+    cudaMemcpy(gpu_val, cpu_matrix->val,
+    	sizeof(float) * (cpu_matrix->nnz), cudaMemcpyHostToDevice);
+
+    cpu_matrix->i = gpu_i;
+    cpu_matrix->j = gpu_j;
+    cpu_matrix->val = gpu_val;
+
+    cudaMemcpy(gpu_matrix, cpu_matrix, sizeof(MatrixCSR), cudaMemcpyHostToDevice);
+    free(cpu_matrix);
+    return gpu_matrix;
+}
+
+#endif
