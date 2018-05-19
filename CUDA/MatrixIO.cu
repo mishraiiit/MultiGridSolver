@@ -78,6 +78,19 @@ struct MatrixCSC {
     float * val;
 };
 
+
+/*
+    Description : It reads the matrix in the file to Unified Memory 
+    in COO format.
+
+    Parameters : 
+        string filename : Path to file.
+
+    Comments : File should be in .mtx format.
+    
+    @author : mishraiiit
+*/
+
 MatrixCOO * readMatrixUnifiedMemoryCOO(std::string filename) {
     std::ifstream fin(filename);
     int M, N, L;
@@ -129,6 +142,19 @@ MatrixCOO * readMatrixUnifiedMemoryCOO(std::string filename) {
 
     return matrix_coo;
 }
+
+
+/*
+    Description : It reads the matrix in the file to main memory 
+    in COO format.
+
+    Parameters : 
+        string filename : Path to file.
+
+    Comments : File should be in .mtx format.
+    
+    @author : mishraiiit
+*/
 
 MatrixCOO * readMatrixCPUMemoryCOO(std::string filename) {
     std::ifstream fin(filename);
@@ -182,6 +208,19 @@ MatrixCOO * readMatrixCPUMemoryCOO(std::string filename) {
     return matrix_coo;
 }
 
+
+/*
+    Description : It reads the matrix in the file to GPU memory 
+    in COO format.
+
+    Parameters : 
+        string filename : Path to file.
+
+    Comments : File should be in .mtx format.
+    
+    @author : mishraiiit
+*/
+
 MatrixCOO * readMatrixGPUMemoryCOO(std::string filename) {
 
     MatrixCOO * matrix_coo_cpu = readMatrixCPUMemoryCOO(filename);
@@ -219,6 +258,18 @@ MatrixCOO * readMatrixGPUMemoryCOO(std::string filename) {
     return matrix_coo;
 }
 
+
+/*
+    Description : It reads the matrix in the file to Unified Memory 
+    in CSR format.
+
+    Parameters : 
+        string filename : Path to file.
+
+    Comments : File should be in .mtx format.
+    
+    @author : mishraiiit
+*/
 
 MatrixCSR * readMatrixUnifiedMemoryCSR(std::string filename) {
     std::ifstream fin(filename);
@@ -275,6 +326,18 @@ MatrixCSR * readMatrixUnifiedMemoryCSR(std::string filename) {
     return matrix_csr;
 }
 
+/*
+    Description : It reads the matrix in the file to Unified Memory 
+    in COO format.
+
+    Parameters : 
+        string filename : Path to file.
+
+    Comments : File should be in .mtx format.
+    
+    @author : mishraiiit
+*/
+
 MatrixCSR * readMatrixCPUMemoryCSR(std::string filename) {
     std::ifstream fin(filename);
     int M, N, L;
@@ -330,6 +393,19 @@ MatrixCSR * readMatrixCPUMemoryCSR(std::string filename) {
     return matrix_csr;
 }
 
+
+/*
+    Description : It reads the matrix in the file to GPU memory
+    in CSR format.
+
+    Parameters : 
+        string filename : Path to file.
+
+    Comments : File should be in .mtx format.
+    
+    @author : mishraiiit
+*/
+
 MatrixCSR * readMatrixGPUMemoryCSR(std::string filename) {
 
     MatrixCSR * matrix_csr_cpu = readMatrixCPUMemoryCSR(filename);
@@ -366,6 +442,19 @@ MatrixCSR * readMatrixGPUMemoryCSR(std::string filename) {
 
     return matrix_csr;
 }
+
+
+/*
+    Description : It reads the matrix in the file to Unified Memory 
+    in CSC format.
+
+    Parameters : 
+        string filename : Path to file.
+
+    Comments : File should be in .mtx format.
+    
+    @author : mishraiiit
+*/
 
 MatrixCSC * readMatrixUnifiedMemoryCSC(std::string filename) {
     std::ifstream fin(filename);
@@ -422,6 +511,19 @@ MatrixCSC * readMatrixUnifiedMemoryCSC(std::string filename) {
     return matrix_csc;
 }
 
+
+/*
+    Description : It reads the matrix in the file to CPU memory 
+    in CSC format.
+
+    Parameters : 
+        string filename : Path to file.
+
+    Comments : File should be in .mtx format.
+    
+    @author : mishraiiit
+*/
+
 MatrixCSC * readMatrixCPUMemoryCSC(std::string filename) {
     std::ifstream fin(filename);
     int M, N, L;
@@ -476,6 +578,19 @@ MatrixCSC * readMatrixCPUMemoryCSC(std::string filename) {
 
     return matrix_csc;
 }
+
+
+/*
+    Description : It reads the matrix in the file to GPU memory 
+    in CSC format.
+
+    Parameters : 
+        string filename : Path to file.
+
+    Comments : File should be in .mtx format.
+    
+    @author : mishraiiit
+*/
 
 MatrixCSC * readMatrixGPUMemoryCSC(std::string filename) {
 
