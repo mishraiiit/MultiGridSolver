@@ -1,6 +1,6 @@
 #include "MatrixIO.cu"
 #include "MatrixAccess.cu"
-#include "Matrix.cu"
+#include "Aggregation.cu"
 #include <thrust/scan.h>
 #include <thrust/execution_policy.h>
 #include <cusparse.h>
