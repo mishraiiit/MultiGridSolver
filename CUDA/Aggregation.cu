@@ -5,6 +5,7 @@
 #include <ctime>
 #include <algorithm>
 #include <fstream>
+#include "GPUDebug.cu"
 
 __global__ void computeRowColAbsSum(MatrixCSR * matrix_csr, MatrixCSC * matrix_csc, bool * ising0, float ktg) {
 
@@ -147,13 +148,6 @@ __host__ __device__ float muij(int i, int j, MatrixCSR * matrix_csr, float * Si)
     return num / den;
 }
 
-template<typename T>
-__device__ void swap_variables(T & u, T & v) {
-    T temp = u;
-    u = v;
-    v = temp;
-}
-
 __global__ void sortNeighbourList(MatrixCSR * matrix, MatrixCSR * neighbour_list, float * Si, bool * allowed, float ktg, bool * ising0) {
     int id = blockIdx.x * blockDim.x + threadIdx.x;
     if(id >= matrix->rows)
@@ -252,17 +246,6 @@ __global__ void aggregation(int n, MatrixCSR * neighbour_list, int * paired_with
 
     paired_with[i] = i;
     // printf("%d %d\n", i, paired_with[i]);
-}
-
-/*
-    Comments:
-    A helper function to assign a value to a pointer on GPU.
-    Particularly helpful when we need to change a pointer on GPU
-    from CPU (saves you from useless memcopies).
-*/
-template<typename T, typename U>
-__global__ void assign(T * node, U value) {
-    * node = value;
 }
 
 __global__ void bfs_frontier_kernel(MatrixCSR * matrix, bool * visited, int * distance, bool * frontier, int * new_found) {
@@ -366,16 +349,4 @@ __global__ void create_p_matrix_transpose (int nc, int * aggregations, int * pai
         matrix_val[prev_sum] = 1;
         matrix_val[prev_sum + 1] = 1;
     }
-}
-
-template<typename T>
-__global__ void print_gpu_variable_kernel(T * u) {
-    printf("%d\n", u);
-}
-
-
-template<typename T>
-void print_gpu_variable(T * u) {
-    print_gpu_variable_kernel <<<1,1>>> (u);
-    cudaDeviceSynchronize();
 }

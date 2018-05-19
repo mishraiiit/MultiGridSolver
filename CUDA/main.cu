@@ -2,43 +2,12 @@
 #include "MatrixAccess.cu"
 #include "MatrixOperations.cu"
 #include "TicToc.cpp"
+#include "GPUDebug.cu"
 #include "Aggregation.cu"
 #include <thrust/scan.h>
 #include <thrust/execution_policy.h>
 #include <cusparse.h>
 #include <string>
-
-__global__ void debugCOO(MatrixCOO * matrix) {
-	for(int i = 0; i < matrix->nnz; i++) {
-		printf("%d %d %lf\n", matrix->i[i], matrix->j[i], matrix->val[i]);
-	}
-}
-
-__global__ void debugCSR(MatrixCSR * matrix) {
-	for(int i = 0; i < matrix->rows; i++) {
-		for(int j = 0; j < matrix->cols; j++) {
-			printf("%lf ", getElementMatrixCSR(matrix, i, j));
-		}
-		printf("\n");
-	}
-}
-
-__global__ void debugCSC(MatrixCSC * matrix) {
-	for(int i = 0; i < matrix->rows; i++) {
-		for(int j = 0; j < matrix->cols; j++) {
-			printf("%lf ", getElementMatrixCSC(matrix, i, j));
-		}
-		printf("\n");
-	}
-}
-
-__global__ void debugmuij(MatrixCSR * matrix, float * Si) {
-	for(int i = 0; i < matrix->rows; i++) {
-		for(int j = 0; j < matrix->cols; j++) {
-			printf("%d %d %lf\n", i, j, muij(i, j, matrix, Si));
-		}
-	}
-}
 
 int main() {
 
