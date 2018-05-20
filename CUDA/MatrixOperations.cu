@@ -452,7 +452,7 @@ MatrixCSR * spmatrixmult_cudaSparse(MatrixCSR * a, MatrixCSR * b, cusparseHandle
          shallow_b->val, shallow_b->i, shallow_b->j,
          descr,
          csrValC, csrRowPtrC, csrColIndC);
-
+    
     assert(status == CUSPARSE_STATUS_SUCCESS);
 
     MatrixCSR * shallow_c = (MatrixCSR *) malloc(sizeof(MatrixCSR));

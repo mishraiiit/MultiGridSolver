@@ -45,6 +45,9 @@ int main(int argc, char * argv[]) {
 
     int nnz_initial = A_CSRCPU->nnz;
 
+    TicToc main_timer("Main timer");
+    main_timer.tic();
+
     for(int pass = 1; pass <= npass; pass++) {
 
         A_CSRCPU = shallowCopyMatrixCSRGPUtoCPU(A_CSR);
@@ -57,8 +60,7 @@ int main(int argc, char * argv[]) {
         
         readtime.toc();
 
-        TicToc main_timer("Main timer");
-        main_timer.tic();
+        
 
         TicToc cudaalloctime("cudaalloctime");
         cudaalloctime.tic();
@@ -213,9 +215,6 @@ int main(int argc, char * argv[]) {
 
         MatrixCSR * P_gpu = transposeCSRGPU_cudaSparse(P_transpose_gpu, cudasparse_handle);
         // MatrixCSR * P_gpu = deepCopyMatrixCSRCPUtoGPU(transposeCSRCPU(deepCopyMatrixCSRGPUtoCPU(P_transpose_gpu)));
-     
-        time_transpose.toc();
-        main_timer.toc();
 
         // printf("%d\n", deepCopyMatrixCSRGPUtoCPU(P_gpu)->cols);
 
@@ -230,6 +229,8 @@ int main(int argc, char * argv[]) {
 
         A_CSR = newA_gpu;
     }
+
+    main_timer.toc();
 
     writeMatrixCSRCPU(std::string("../matrices/") + matrixname + \
         std::string("promatrix.mtx"), deepCopyMatrixCSRGPUtoCPU(P_cumm));
