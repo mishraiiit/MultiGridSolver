@@ -9,6 +9,8 @@
 #include <cusparse.h>
 #include <string>
 
+#define LEVELS 50
+
 int main(int argc, char * argv[]) {
 
     std::string matrixname;
@@ -131,13 +133,11 @@ int main(int argc, char * argv[]) {
         aggregation_initial<<<number_of_blocks, number_of_threads>>>
         (A_CSRCPU->rows, paired_with);
 
-        aggregation<<<number_of_blocks, number_of_threads>>>
-        (A_CSRCPU->rows, neighbour_list, paired_with, allowed, A_CSR, Si, 0,
-         ising0, bfs_distance);
-
-        aggregation<<<number_of_blocks, number_of_threads>>>
-        (A_CSRCPU->rows, neighbour_list, paired_with, allowed, A_CSR, Si, 1,
-         ising0, bfs_distance);
+        for(int i = 0; i < LEVELS; i++) {
+            aggregation<<<number_of_blocks, number_of_threads>>>
+            (A_CSRCPU->rows, neighbour_list, paired_with, allowed, A_CSR, Si, i,
+             ising0, bfs_distance, LEVELS);    
+        }
 
         cudaDeviceSynchronize();
 

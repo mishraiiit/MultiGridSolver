@@ -228,11 +228,11 @@ __device__ bool okay(int i, int j, MatrixCSR * matrix, float * Si) {
     ising0 contains the node which are to be kept out of aggregation.
     bfs_distance tells the distance of a node from node 0.
 */
-__global__ void aggregation(int n, MatrixCSR * neighbour_list, int * paired_with, bool * allowed, MatrixCSR * matrix, float * Si, int distance, bool * ising0, int * bfs_distance) {
+__global__ void aggregation(int n, MatrixCSR * neighbour_list, int * paired_with, bool * allowed, MatrixCSR * matrix, float * Si, int distance, bool * ising0, int * bfs_distance, int levels) {
     int i = blockDim.x * blockIdx.x + threadIdx.x;
     if(i >= n) return;
     if(ising0[i]) return;
-    if(bfs_distance[i]  % 2 != distance) return;
+    if(bfs_distance[i]  % levels != distance) return;
     if(paired_with[i] != -1) return;
 
     for(int j = neighbour_list->i[i]; j < neighbour_list->i[i + 1]; j++) {
