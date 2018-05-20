@@ -9,7 +9,7 @@
 #include <cusparse.h>
 #include <string>
 
-#define LEVELS 10
+#define LEVELS 100
 
 int main(int argc, char * argv[]) {
 
