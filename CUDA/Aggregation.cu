@@ -7,7 +7,7 @@
 #include <fstream>
 #include "GPUDebug.cu"
 
-__global__ void computeRowColAbsSum(MatrixCSR * matrix_csr, MatrixCSC * matrix_csc, bool * ising0, float ktg) {
+__global__ void computeRowColAbsSum(MatrixCSR * matrix_csr, MatrixCSC * matrix_csc, bool * ising0, float ktg, int iteration) {
 
     int id = blockIdx.x * blockDim.x + threadIdx.x;
     if(id >= matrix_csr->rows)
@@ -49,7 +49,11 @@ __global__ void computeRowColAbsSum(MatrixCSR * matrix_csr, MatrixCSC * matrix_c
     }
     float aii = getElementMatrixCSR(matrix_csr, id, id);
     float rhs = (ktg / (ktg - 2)) * ans;
-    ising0[id] = aii >= rhs;
+    
+    if(iteration == 1)
+        ising0[id] = aii >= rhs;
+    else
+        ising0[id] = 0;
 }
 
 __global__ void comptueSi(MatrixCSR * matrix_csr, MatrixCSC * matrix_csc, float * output) {

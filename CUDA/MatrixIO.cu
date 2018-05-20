@@ -628,4 +628,36 @@ MatrixCSC * readMatrixGPUMemoryCSC(std::string filename) {
     return matrix_csc;
 }
 
+
+/*
+    Description : Writes given CSR matrix to file.
+
+    Parameters : 
+        string filename : Path to file.
+        MatrixCSR * matrix : Matrix to write.
+
+    Comments : File should be in .mtx format.
+    
+    @author : mishraiiit
+*/
+
+void writeMatrixCSRCPU(std::string filename, MatrixCSR * matrix) {
+    int rows = matrix->rows;
+    int cols = matrix->cols;
+    int nnz = matrix->nnz;
+    std::ofstream fout;
+    fout.open(filename);
+    fout << "%%MatrixMarket matrix coordinate real general " << std::endl;
+    fout << rows << " " << cols << " " << nnz << std::endl;
+    for(int i = 0; i < rows; i++) {
+        for(int j = matrix->i[i]; j < matrix->i[i + 1]; j++) {
+            fout << i + 1 << " " << matrix->j[j] + 1 << " " << \
+            matrix->val[j] << std::endl;
+            // Adding 1 for exporting to .mtx format.
+        }
+    }
+    fout.close();
+}
+
+
 #endif
