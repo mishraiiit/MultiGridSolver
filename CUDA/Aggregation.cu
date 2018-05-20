@@ -292,7 +292,7 @@ void gpu_prefix_sum(int n, int * useful_pairs) {
     gpu_prefix_sum_kernel <<<1,1>>> (n, useful_pairs);
 }
 
-int * bfs(int n, MatrixCSR * matrix_gpu) {
+int * bfs(int n, MatrixCSR * matrix_gpu, int * max_distance) {
     bool * visited;
     cudaMalloc(&visited, sizeof(bool) * n);
 
@@ -307,9 +307,10 @@ int * bfs(int n, MatrixCSR * matrix_gpu) {
 
     int * new_found;
     cudaMallocManaged(&new_found, sizeof(int));
-
+    * max_distance = 0;
     do {
         * new_found = false;
+        * max_distance = * max_distance + 1;
         bfs_frontier_kernel <<<(n + 1024 - 1)/ 1024, 1024>>>(matrix_gpu, visited, distance, frontier, new_found);
         cudaDeviceSynchronize();
     } while(* new_found);

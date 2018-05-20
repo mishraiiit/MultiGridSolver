@@ -9,7 +9,7 @@
 #include <cusparse.h>
 #include <string>
 
-#define SKIP_LEVELS 2
+// #define SKIP_LEVELS 2
 
 int main(int argc, char * argv[]) {
 
@@ -116,7 +116,8 @@ int main(int argc, char * argv[]) {
 
         TicToc bfstime("BFS time...");
         bfstime.tic();
-        int * bfs_distance = bfs(A_CSRCPU->rows, A_CSR);
+        int max_distance;
+        int * bfs_distance = bfs(A_CSRCPU->rows, A_CSR, &max_distance);
         cudaDeviceSynchronize();
         bfstime.toc();
 
@@ -133,10 +134,16 @@ int main(int argc, char * argv[]) {
         aggregation_initial<<<number_of_blocks, number_of_threads>>>
         (A_CSRCPU->rows, paired_with);
 
-        for(int i = 0; i < SKIP_LEVELS; i++) {
+        #ifdef SKIP_LEVELS
+            int skip_levels = SKIP_LEVELS;
+        #else
+            int skip_levels = max_distance + 1;
+        #endif 
+
+        for(int i = 0; i < skip_levels; i++) {
             aggregation<<<number_of_blocks, number_of_threads>>>
             (A_CSRCPU->rows, neighbour_list, paired_with, allowed, A_CSR, Si, i,
-             ising0, bfs_distance, SKIP_LEVELS);    
+             ising0, bfs_distance, skip_levels);    
         }
 
         cudaDeviceSynchronize();
