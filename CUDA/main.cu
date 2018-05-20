@@ -9,7 +9,7 @@
 #include <cusparse.h>
 #include <string>
 
-#define LEVELS 100
+#define SKIP_LEVELS 2
 
 int main(int argc, char * argv[]) {
 
@@ -133,10 +133,10 @@ int main(int argc, char * argv[]) {
         aggregation_initial<<<number_of_blocks, number_of_threads>>>
         (A_CSRCPU->rows, paired_with);
 
-        for(int i = 0; i < LEVELS; i++) {
+        for(int i = 0; i < SKIP_LEVELS; i++) {
             aggregation<<<number_of_blocks, number_of_threads>>>
             (A_CSRCPU->rows, neighbour_list, paired_with, allowed, A_CSR, Si, i,
-             ising0, bfs_distance, LEVELS);    
+             ising0, bfs_distance, SKIP_LEVELS);    
         }
 
         cudaDeviceSynchronize();

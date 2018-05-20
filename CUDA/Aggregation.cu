@@ -239,7 +239,6 @@ __global__ void aggregation(int n, MatrixCSR * neighbour_list, int * paired_with
         if(!allowed[j]) continue;
         int possible_j = neighbour_list->j[j];
         if(bfs_distance[i] == bfs_distance[possible_j]) continue;
-        if(distance == 0 && bfs_distance[i] > bfs_distance[possible_j]) continue;
         if(!okay(i, possible_j, matrix, Si)) continue;
         if(atomicCAS(&paired_with[possible_j], -1, i) == -1) {
             paired_with[i] = possible_j;
