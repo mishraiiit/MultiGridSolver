@@ -240,6 +240,26 @@ MatrixCSR * shallowCopyMatrixCSRGPUtoCPU(const MatrixCSR * const gpu_matrix) {
 
 
 /*
+    Description : Copies a matrix on GPU to CPU. It will not copy the contents
+    of the underlying pointers, will just copy the pointers as is (i.e the
+    address, not the values).
+
+    Parameters : 
+        MatrixCSC * matrix : Matrix in CSC format on GPU.
+
+    Returns : Matrix in CSC format on CPU.
+
+    @author : mishraiiit
+*/
+
+MatrixCSC * shallowCopyMatrixCSCGPUtoCPU(const MatrixCSC * const gpu_matrix) {
+    MatrixCSC * cpu_matrix = (MatrixCSC *) malloc(sizeof(MatrixCSC));
+    cudaMemcpy(cpu_matrix, gpu_matrix, sizeof(MatrixCSC), cudaMemcpyDeviceToHost);
+    return cpu_matrix;
+}
+
+
+/*
     Description : Copies a matrix on CPU to GPU. It will also create a copy
     of the contents of the pointers inside the struct on CPU.
 
@@ -346,6 +366,7 @@ MatrixCSR * transposeCSRGPU_cudaSparse(MatrixCSR * matrix_gpu, cusparseHandle_t 
 
     MatrixCSR * to_return = shallowCopyMatrixCSRCPUtoGPU(shallow_cpu);
     free(shallow_cpu);
+    cudaDeviceSynchronize();
     return to_return;
 }
 
@@ -393,6 +414,7 @@ MatrixCSC * convertCSRGPU_cudaSparse(MatrixCSR * matrix_gpu, cusparseHandle_t & 
 
     MatrixCSC * to_return = shallowCopyMatrixCSCCPUtoGPU(shallow_cpu_csc);
     free(shallow_cpu_csc);
+    cudaDeviceSynchronize();
     return to_return;
 }
 
@@ -464,7 +486,46 @@ MatrixCSR * spmatrixmult_cudaSparse(MatrixCSR * a, MatrixCSR * b, cusparseHandle
     shallow_c->val = csrValC;
     MatrixCSR * c = shallowCopyMatrixCSRCPUtoGPU(shallow_c);
     free(shallow_c);
+    cudaDeviceSynchronize();
     return c;
+}
+
+
+/*
+    Description : Clear CSR Matrix on GPU.
+
+    Parameters : 
+        MatrixCSR * matrix : Matrix in CSR format on GPU.
+
+    @author : mishraiiit
+*/
+
+void clearCSRGPU(MatrixCSR * matrix) {
+    MatrixCSR * matrix_shallow_cpu = shallowCopyMatrixCSRGPUtoCPU(matrix);
+    cudaFree(matrix_shallow_cpu->i);
+    cudaFree(matrix_shallow_cpu->j);
+    cudaFree(matrix_shallow_cpu->val);
+    free(matrix_shallow_cpu);
+    cudaFree(matrix);
+}
+
+
+/*
+    Description : Clear CSR Matrix on GPU.
+
+    Parameters : 
+        MatrixCSR * matrix : Matrix in CSR format on GPU.
+
+    @author : mishraiiit
+*/
+
+void clearCSCGPU(MatrixCSC * matrix) {
+    MatrixCSC * matrix_shallow_cpu = shallowCopyMatrixCSCGPUtoCPU(matrix);
+    cudaFree(matrix_shallow_cpu->i);
+    cudaFree(matrix_shallow_cpu->j);
+    cudaFree(matrix_shallow_cpu->val);
+    free(matrix_shallow_cpu);
+    cudaFree(matrix);
 }
 
 #endif

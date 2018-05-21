@@ -315,6 +315,10 @@ int * bfs(int n, MatrixCSR * matrix_gpu, int * max_distance) {
         cudaDeviceSynchronize();
     } while(* new_found);
 
+    cudaFree(visited);
+    cudaFree(frontier);
+    cudaFree(new_found);
+    
     return distance;
 
 }

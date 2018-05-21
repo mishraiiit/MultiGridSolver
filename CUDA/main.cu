@@ -9,7 +9,7 @@
 #include <cusparse.h>
 #include <string>
 
-// #define SKIP_LEVELS 2
+#define SKIP_LEVELS 2
 
 int main(int argc, char * argv[]) {
 
@@ -67,9 +67,6 @@ int main(int argc, char * argv[]) {
         TicToc cudaalloctime("cudaalloctime");
         cudaalloctime.tic();
 
-        int * paired_with_cpu = (int *) malloc(A_CSRCPU->rows * sizeof(int));
-        int * aggregations_cpu = (int *) malloc(A_CSRCPU->rows * sizeof(int));
-
         float * Si;
         cudaMalloc(&Si, sizeof(float) * A_CSRCPU->rows);
 
@@ -79,17 +76,12 @@ int main(int argc, char * argv[]) {
         bool * allowed;
         cudaMalloc(&allowed, sizeof(bool) * A_CSRCPU->nnz);
 
-        float * Si_host = (float *) malloc(sizeof(float) * A_CSRCPU->rows);
-
         int * paired_with;
         cudaMalloc(&paired_with, sizeof(int) * A_CSRCPU->rows);
 
         int * useful_pairs;
         cudaMalloc(&useful_pairs, sizeof(int) * A_CSRCPU->rows);
-
-        int * useful_pairs_cpu_prefix = 
-            (int *) malloc(A_CSRCPU->rows * sizeof(int));
-
+        
         int * aggregations;
         cudaMalloc(&aggregations, sizeof(int) * A_CSRCPU->rows);
 
@@ -159,9 +151,7 @@ int main(int argc, char * argv[]) {
 
         TicToc prefix_sum("Sum kernel");
         prefix_sum.tic();
-        gpu_prefix_sum(A_CSRCPU->rows, useful_pairs);
-        cudaMemcpy(useful_pairs_cpu_prefix, useful_pairs,
-            sizeof(int) * A_CSRCPU->rows, cudaMemcpyDeviceToHost);
+        gpu_prefix_sum(A_CSRCPU->rows, useful_pairs);        
         prefix_sum.toc();
 
         TicToc P_matrix_creation_time("Time to P matrix");
@@ -173,11 +163,6 @@ int main(int argc, char * argv[]) {
 
         mark_aggregations <<<number_of_blocks, number_of_threads>>>
         (A_CSRCPU->rows, aggregations, useful_pairs);
-
-        cudaMemcpy(aggregations_cpu, aggregations,
-            sizeof(int) * A_CSRCPU->rows, cudaMemcpyDeviceToHost);
-        cudaMemcpy(paired_with_cpu, paired_with,
-            sizeof(int) * A_CSRCPU->rows, cudaMemcpyDeviceToHost);
 
         get_aggregations_count <<< (nc + 1024 - 1) / 1024, 1024 >>>
         (nc, aggregations, paired_with, aggregation_count);
@@ -234,15 +219,31 @@ int main(int argc, char * argv[]) {
         else
             P_cumm = spmatrixmult_cudaSparse(P_cumm, P_gpu, cudasparse_handle);
 
+        free(P_transpose_shallow_cpu);
+        clearCSRGPU(A_CSR);
+        clearCSRGPU(neighbour_list);
+        clearCSCGPU(A_CSC);
+        cudaFree(Si);
+        cudaFree(ising0);
+        cudaFree(allowed);
+        cudaFree(paired_with);
+        cudaFree(useful_pairs);
+        cudaFree(aggregations);
+        cudaFree(aggregation_count);
+        cudaFree(bfs_distance);
+        clearCSRGPU(P_gpu);
+        clearCSRGPU(P_transpose_gpu);
+
         A_CSR = newA_gpu;
+
     }
 
     main_timer.toc();
 
     writeMatrixCSRCPU(std::string("../matrices/") + matrixname + \
         std::string("promatrix.mtx"), deepCopyMatrixCSRGPUtoCPU(P_cumm));
- //     // printCSRCPU(deepCopyMatrixCSRGPUtoCPU(deepCopyMatrixCSRCPUtoGPU(P_cpu)));
- //     // printCSRCPU(deepCopyMatrixCSRGPUtoCPU(P_gpu));
+ 
+    clearCSRGPU(P_cumm);
 
     return 0;
 }
