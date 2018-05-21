@@ -99,17 +99,23 @@ void printCSRCPU(const MatrixCSR * const matrix) {
 
 MatrixCSR * deepCopyMatrixCSRGPUtoCPU(const MatrixCSR * const gpu_matrix) {
     MatrixCSR * cpu_matrix = (MatrixCSR *) malloc(sizeof(MatrixCSR));
-    cudaMemcpy(cpu_matrix, gpu_matrix, sizeof(MatrixCSR), cudaMemcpyDeviceToHost);
+    assert(cudaMemcpy(cpu_matrix, gpu_matrix,
+        sizeof(MatrixCSR), cudaMemcpyDeviceToHost) == cudaSuccess);
     int * cpu_i = (int *) malloc(sizeof(int) * (cpu_matrix->rows + 1));
     int * cpu_j = (int *) malloc(sizeof(int) * (cpu_matrix->nnz));
     float * cpu_val = (float *) malloc(sizeof(float) * (cpu_matrix->nnz));
 
-    cudaMemcpy(cpu_i, cpu_matrix->i,
-        sizeof(int) * (cpu_matrix->rows + 1), cudaMemcpyDeviceToHost);
-    cudaMemcpy(cpu_j, cpu_matrix->j,
-        sizeof(int) * (cpu_matrix->nnz), cudaMemcpyDeviceToHost);
-    cudaMemcpy(cpu_val, cpu_matrix->val,
-        sizeof(float) * (cpu_matrix->nnz), cudaMemcpyDeviceToHost);
+    assert(cudaMemcpy(cpu_i, cpu_matrix->i,
+        sizeof(int) * (cpu_matrix->rows + 1),
+        cudaMemcpyDeviceToHost) == cudaSuccess);
+
+    assert(cudaMemcpy(cpu_j, cpu_matrix->j,
+        sizeof(int) * (cpu_matrix->nnz),
+        cudaMemcpyDeviceToHost) == cudaSuccess);
+
+    assert(cudaMemcpy(cpu_val, cpu_matrix->val,
+        sizeof(float) * (cpu_matrix->nnz),
+        cudaMemcpyDeviceToHost) == cudaSuccess);
 
     cpu_matrix->i = cpu_i;
     cpu_matrix->j = cpu_j;
@@ -136,8 +142,9 @@ MatrixCSR * shallowCopyMatrixCSRCPUtoGPU(const MatrixCSR * const my_cpu) {
     MatrixCSR * cpu_matrix = (MatrixCSR *) malloc(sizeof(MatrixCSR));
     memcpy(cpu_matrix, my_cpu, sizeof(MatrixCSR));
     MatrixCSR * gpu_matrix;
-    cudaMalloc(&gpu_matrix, sizeof(MatrixCSR));
-    cudaMemcpy(gpu_matrix, cpu_matrix, sizeof(MatrixCSR), cudaMemcpyHostToDevice);
+    assert(cudaMalloc(&gpu_matrix, sizeof(MatrixCSR)) == cudaSuccess);
+    assert(cudaMemcpy(gpu_matrix, cpu_matrix,
+        sizeof(MatrixCSR), cudaMemcpyHostToDevice) == cudaSuccess);
     free(cpu_matrix);
     return gpu_matrix;
 }
@@ -157,22 +164,29 @@ MatrixCSR * shallowCopyMatrixCSRCPUtoGPU(const MatrixCSR * const my_cpu) {
 
 MatrixCSR * deepCopyMatrixCSRGPUtoGPU(const MatrixCSR * const gpu_matrix) {
     MatrixCSR * cpu_matrix = (MatrixCSR *) malloc(sizeof(MatrixCSR));
-    cudaMemcpy(cpu_matrix, gpu_matrix, sizeof(MatrixCSR), cudaMemcpyDeviceToHost);
+    assert(cudaMemcpy(cpu_matrix, gpu_matrix,
+        sizeof(MatrixCSR), cudaMemcpyDeviceToHost) == cudaSuccess);
 
     int * gpu_i;
     int * gpu_j;
     float * gpu_val;
 
-    cudaMalloc(&gpu_i, sizeof(int) * (cpu_matrix->rows + 1));
-    cudaMalloc(&gpu_j, sizeof(int) * (cpu_matrix->nnz));
-    cudaMalloc(&gpu_val, sizeof(float) * (cpu_matrix->nnz));
+    assert(cudaMalloc(&gpu_i,
+        sizeof(int) * (cpu_matrix->rows + 1)) == cudaSuccess);
+    assert(cudaMalloc(&gpu_j,
+        sizeof(int) * (cpu_matrix->nnz)) == cudaSuccess);
+    assert(cudaMalloc(&gpu_val,
+        sizeof(float) * (cpu_matrix->nnz)) == cudaSuccess);
 
-    cudaMemcpy(gpu_i, cpu_matrix->i,
-        sizeof(int) * (cpu_matrix->rows + 1), cudaMemcpyDeviceToDevice);
-    cudaMemcpy(gpu_j, cpu_matrix->j,
-        sizeof(int) * (cpu_matrix->nnz), cudaMemcpyDeviceToDevice);
-    cudaMemcpy(gpu_val, cpu_matrix->val,
-        sizeof(float) * (cpu_matrix->nnz), cudaMemcpyDeviceToDevice);
+    assert(cudaMemcpy(gpu_i, cpu_matrix->i, 
+        sizeof(int) * (cpu_matrix->rows + 1),
+        cudaMemcpyDeviceToDevice) == cudaSuccess);
+    assert(cudaMemcpy(gpu_j, cpu_matrix->j,
+        sizeof(int) * (cpu_matrix->nnz),
+        cudaMemcpyDeviceToDevice) == cudaSuccess);
+    assert(cudaMemcpy(gpu_val, cpu_matrix->val,
+        sizeof(float) * (cpu_matrix->nnz),
+        cudaMemcpyDeviceToDevice) == cudaSuccess);
 
     cpu_matrix->i = gpu_i;
     cpu_matrix->j = gpu_j;
@@ -199,17 +213,21 @@ MatrixCSR * deepCopyMatrixCSRGPUtoGPU(const MatrixCSR * const gpu_matrix) {
 
 MatrixCSC * deepCopyMatrixCSCRGPUtoCPU(const MatrixCSC * const gpu_matrix) {
     MatrixCSC * cpu_matrix = (MatrixCSC *) malloc(sizeof(MatrixCSC));
-    cudaMemcpy(cpu_matrix, gpu_matrix, sizeof(MatrixCSC), cudaMemcpyDeviceToHost);
+    assert(cudaMemcpy(cpu_matrix, gpu_matrix,
+        sizeof(MatrixCSC), cudaMemcpyDeviceToHost) == cudaSuccess);
     int * cpu_i = (int *) malloc(sizeof(int) * (cpu_matrix->nnz));
     int * cpu_j = (int *) malloc(sizeof(int) * (cpu_matrix->cols + 1));
     float * cpu_val = (float *) malloc(sizeof(float) * (cpu_matrix->nnz));
 
-    cudaMemcpy(cpu_i, cpu_matrix->i,
-        sizeof(int) * (cpu_matrix->rows + 1), cudaMemcpyDeviceToHost);
-    cudaMemcpy(cpu_j, cpu_matrix->j,
-        sizeof(int) * (cpu_matrix->nnz), cudaMemcpyDeviceToHost);
-    cudaMemcpy(cpu_val, cpu_matrix->val,
-        sizeof(float) * (cpu_matrix->nnz), cudaMemcpyDeviceToHost);
+    assert(cudaMemcpy(cpu_i, cpu_matrix->i,
+        sizeof(int) * (cpu_matrix->rows + 1),
+        cudaMemcpyDeviceToHost) == cudaSuccess);
+    assert(cudaMemcpy(cpu_j, cpu_matrix->j,
+        sizeof(int) * (cpu_matrix->nnz),
+        cudaMemcpyDeviceToHost) == cudaSuccess);
+    assert(cudaMemcpy(cpu_val, cpu_matrix->val,
+        sizeof(float) * (cpu_matrix->nnz),
+        cudaMemcpyDeviceToHost) == cudaSuccess);
 
     cpu_matrix->i = cpu_i;
     cpu_matrix->j = cpu_j;
@@ -234,10 +252,31 @@ MatrixCSC * deepCopyMatrixCSCRGPUtoCPU(const MatrixCSC * const gpu_matrix) {
 
 MatrixCSR * shallowCopyMatrixCSRGPUtoCPU(const MatrixCSR * const gpu_matrix) {
     MatrixCSR * cpu_matrix = (MatrixCSR *) malloc(sizeof(MatrixCSR));
-    cudaMemcpy(cpu_matrix, gpu_matrix, sizeof(MatrixCSR), cudaMemcpyDeviceToHost);
+    assert(cudaMemcpy(cpu_matrix, gpu_matrix,
+        sizeof(MatrixCSR), cudaMemcpyDeviceToHost) == cudaSuccess);
     return cpu_matrix;
 }
 
+
+/*
+    Description : Copies a matrix on GPU to CPU. It will not copy the contents
+    of the underlying pointers, will just copy the pointers as is (i.e the
+    address, not the values).
+
+    Parameters : 
+        MatrixCSC * matrix : Matrix in CSC format on GPU.
+
+    Returns : Matrix in CSC format on CPU.
+
+    @author : mishraiiit
+*/
+
+MatrixCSC * shallowCopyMatrixCSCGPUtoCPU(const MatrixCSC * const gpu_matrix) {
+    MatrixCSC * cpu_matrix = (MatrixCSC *) malloc(sizeof(MatrixCSC));
+    assert(cudaMemcpy(cpu_matrix, gpu_matrix,
+        sizeof(MatrixCSC), cudaMemcpyDeviceToHost) == cudaSuccess);
+    return cpu_matrix;
+}
 
 /*
     Description : Copies a matrix on CPU to GPU. It will also create a copy
@@ -255,28 +294,35 @@ MatrixCSR * deepCopyMatrixCSRCPUtoGPU(const MatrixCSR * const my_cpu) {
     MatrixCSR * cpu_matrix = (MatrixCSR *) malloc(sizeof(MatrixCSR));
     memcpy(cpu_matrix, my_cpu, sizeof(MatrixCSR));
     MatrixCSR * gpu_matrix;
-    cudaMalloc(&gpu_matrix, sizeof(MatrixCSR));
+    assert(cudaMalloc(&gpu_matrix, sizeof(MatrixCSR)) == cudaSuccess);
 
     int * gpu_i;
     int * gpu_j;
     float * gpu_val;
 
-    cudaMalloc(&gpu_i, sizeof(int) * (cpu_matrix->rows + 1));
-    cudaMalloc(&gpu_j, sizeof(int) * (cpu_matrix->nnz));
-    cudaMalloc(&gpu_val, sizeof(float) * (cpu_matrix->nnz));
+    assert(cudaMalloc(&gpu_i,
+        sizeof(int) * (cpu_matrix->rows + 1)) == cudaSuccess);
+    assert(cudaMalloc(&gpu_j,
+        sizeof(int) * (cpu_matrix->nnz)) == cudaSuccess);
+    assert(cudaMalloc(&gpu_val,
+        sizeof(float) * (cpu_matrix->nnz)) == cudaSuccess);
 
-    cudaMemcpy(gpu_i, cpu_matrix->i,
-    	sizeof(int) * (cpu_matrix->rows + 1), cudaMemcpyHostToDevice);
-    cudaMemcpy(gpu_j, cpu_matrix->j,
-    	sizeof(int) * (cpu_matrix->nnz), cudaMemcpyHostToDevice);
-    cudaMemcpy(gpu_val, cpu_matrix->val,
-    	sizeof(float) * (cpu_matrix->nnz), cudaMemcpyHostToDevice);
+    assert(cudaMemcpy(gpu_i, cpu_matrix->i,
+    	sizeof(int) * (cpu_matrix->rows + 1),
+        cudaMemcpyHostToDevice) == cudaSuccess);
+    assert(cudaMemcpy(gpu_j, cpu_matrix->j,
+    	sizeof(int) * (cpu_matrix->nnz),
+        cudaMemcpyHostToDevice) == cudaSuccess);
+    assert(cudaMemcpy(gpu_val, cpu_matrix->val,
+    	sizeof(float) * (cpu_matrix->nnz),
+         cudaMemcpyHostToDevice) == cudaSuccess);
 
     cpu_matrix->i = gpu_i;
     cpu_matrix->j = gpu_j;
     cpu_matrix->val = gpu_val;
 
-    cudaMemcpy(gpu_matrix, cpu_matrix, sizeof(MatrixCSR), cudaMemcpyHostToDevice);
+    assert(cudaMemcpy(gpu_matrix, cpu_matrix,
+        sizeof(MatrixCSR), cudaMemcpyHostToDevice) == cudaSuccess);
     free(cpu_matrix);
     return gpu_matrix;
 }
@@ -299,8 +345,9 @@ MatrixCSC * shallowCopyMatrixCSCCPUtoGPU(const MatrixCSC * const my_cpu) {
     MatrixCSC * cpu_matrix = (MatrixCSC *) malloc(sizeof(MatrixCSC));
     memcpy(cpu_matrix, my_cpu, sizeof(MatrixCSC));
     MatrixCSC * gpu_matrix;
-    cudaMalloc(&gpu_matrix, sizeof(MatrixCSC));
-    cudaMemcpy(gpu_matrix, cpu_matrix, sizeof(MatrixCSC), cudaMemcpyHostToDevice);
+    assert(cudaMalloc(&gpu_matrix, sizeof(MatrixCSC)) == cudaSuccess);
+    assert(cudaMemcpy(gpu_matrix, cpu_matrix,
+        sizeof(MatrixCSC), cudaMemcpyHostToDevice) == cudaSuccess);
     free(cpu_matrix);
     return gpu_matrix;
 }
@@ -326,9 +373,12 @@ MatrixCSR * transposeCSRGPU_cudaSparse(MatrixCSR * matrix_gpu, cusparseHandle_t 
     int * new_j;
     float * new_val;
 
-    cudaMalloc(&new_i, sizeof(int) * (shallow_cpu->cols + 1));
-    cudaMalloc(&new_j, sizeof(int) * (shallow_cpu->nnz));
-    cudaMalloc(&new_val, sizeof(float) * (shallow_cpu->nnz));
+    assert(cudaMalloc(&new_i,
+        sizeof(int) * (shallow_cpu->cols + 1)) == cudaSuccess);
+    assert(cudaMalloc(&new_j,
+        sizeof(int) * (shallow_cpu->nnz)) == cudaSuccess);
+    assert(cudaMalloc(&new_val,
+        sizeof(float) * (shallow_cpu->nnz)) == cudaSuccess);
 
     
     cusparseStatus_t status = cusparseScsr2csc(handle, shallow_cpu->rows,
@@ -372,9 +422,12 @@ MatrixCSC * convertCSRGPU_cudaSparse(MatrixCSR * matrix_gpu, cusparseHandle_t & 
     int * new_j;
     float * new_val;
 
-    cudaMalloc(&new_i, sizeof(int) * (shallow_cpu->cols + 1));
-    cudaMalloc(&new_j, sizeof(int) * (shallow_cpu->nnz));
-    cudaMalloc(&new_val, sizeof(float) * (shallow_cpu->nnz));
+    assert(cudaMalloc(&new_i,
+        sizeof(int) * (shallow_cpu->cols + 1)) == cudaSuccess);
+    assert(cudaMalloc(&new_j,
+        sizeof(int) * (shallow_cpu->nnz)) == cudaSuccess);
+    assert(cudaMalloc(&new_val,
+        sizeof(float) * (shallow_cpu->nnz)) == cudaSuccess);
 
     
     cusparseStatus_t status = cusparseScsr2csc(handle, shallow_cpu->rows,
@@ -423,7 +476,8 @@ MatrixCSR * spmatrixmult_cudaSparse(MatrixCSR * a, MatrixCSR * b, cusparseHandle
     int * nnzTotalDevHostPtr = &nnzC;
     cusparseSetPointerMode(handle, CUSPARSE_POINTER_MODE_HOST);
     int * csrRowPtrC;
-    cudaMalloc(&csrRowPtrC, sizeof(int)*(shallow_a->rows + 1));
+    assert(cudaMalloc(&csrRowPtrC,
+        sizeof(int)*(shallow_a->rows + 1)) == cudaSuccess);
 
     cusparseXcsrgemmNnz(handle, CUSPARSE_OPERATION_NON_TRANSPOSE,
         CUSPARSE_OPERATION_NON_TRANSPOSE, shallow_a->rows,
@@ -440,8 +494,8 @@ MatrixCSR * spmatrixmult_cudaSparse(MatrixCSR * a, MatrixCSR * b, cusparseHandle
     int * csrColIndC;
     float * csrValC;
 
-    cudaMalloc(&csrColIndC, sizeof(int) * nnzC);
-    cudaMalloc(&csrValC, sizeof(float) * nnzC);
+    assert(cudaMalloc(&csrColIndC, sizeof(int) * nnzC) == cudaSuccess);
+    assert(cudaMalloc(&csrValC, sizeof(float) * nnzC) == cudaSuccess);
 
     cusparseStatus_t status =  cusparseScsrgemm(handle,
          CUSPARSE_OPERATION_NON_TRANSPOSE, CUSPARSE_OPERATION_NON_TRANSPOSE,
@@ -465,6 +519,44 @@ MatrixCSR * spmatrixmult_cudaSparse(MatrixCSR * a, MatrixCSR * b, cusparseHandle
     MatrixCSR * c = shallowCopyMatrixCSRCPUtoGPU(shallow_c);
     free(shallow_c);
     return c;
+}
+
+
+/*
+    Description : Frees a sparse CSR Matrix on GPU.
+
+    Parameters : 
+        MatrixCSR * matrix : Matrix in CSR format on GPU.
+
+    @author : mishraiiit
+*/
+
+void freeMatrixCSRGPU(MatrixCSR * matrix) {
+    MatrixCSR * shallow_cpu = shallowCopyMatrixCSRGPUtoCPU(matrix);
+    assert(cudaFree(shallow_cpu->i) == cudaSuccess);
+    assert(cudaFree(shallow_cpu->j) == cudaSuccess);
+    assert(cudaFree(shallow_cpu->val) == cudaSuccess);
+    assert(cudaFree(matrix) == cudaSuccess);
+    free(shallow_cpu);
+}
+
+
+/*
+    Description : Frees a sparse CSC Matrix on GPU.
+
+    Parameters : 
+        MatrixCSC * matrix : Matrix in CSC format on GPU.
+
+    @author : mishraiiit
+*/
+
+void freeMatrixCSCGPU(MatrixCSC * matrix) {
+    MatrixCSC * shallow_cpu = shallowCopyMatrixCSCGPUtoCPU(matrix);
+    assert(cudaFree(shallow_cpu->i) == cudaSuccess);
+    assert(cudaFree(shallow_cpu->j) == cudaSuccess);
+    assert(cudaFree(shallow_cpu->val) == cudaSuccess);
+    assert(cudaFree(matrix) == cudaSuccess);
+    free(shallow_cpu);
 }
 
 #endif
