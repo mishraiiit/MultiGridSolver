@@ -232,24 +232,20 @@ __global__ void aggregation(int n, MatrixCSR * neighbour_list, int * paired_with
     int i = blockDim.x * blockIdx.x + threadIdx.x;
     if(i >= n) return;
     if(ising0[i]) return;
+    int current_distance = bfs_distance[i];
     if(bfs_distance[i]  % levels != distance) return;
     if(paired_with[i] != -1) return;
-
     for(int j = neighbour_list->i[i]; j < neighbour_list->i[i + 1]; j++) {
         if(!allowed[j]) continue;
         int possible_j = neighbour_list->j[j];
-        if(bfs_distance[i] == bfs_distance[possible_j]) continue;
+        if(current_distance == bfs_distance[possible_j]) continue;
         if(!okay(i, possible_j, matrix, Si)) continue;
         if(atomicCAS(&paired_with[possible_j], -1, i) == -1) {
             paired_with[i] = possible_j;
-            paired_with[possible_j] = i;
-            // printf("%d %d\n", i, possible_j);
             return;
         }
     }
-
     paired_with[i] = i;
-    // printf("%d %d\n", i, paired_with[i]);
 }
 
 __global__ void bfs_frontier_kernel(MatrixCSR * matrix, bool * visited, int * distance, bool * frontier, int * new_found) {

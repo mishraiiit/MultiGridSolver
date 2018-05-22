@@ -45,6 +45,8 @@ int main(int argc, char * argv[]) {
     auto A_CSRCPU = readMatrixCPUMemoryCSR(filename);
     auto A_CSR = deepCopyMatrixCSRCPUtoGPU(A_CSRCPU);
 
+    readtime.toc();
+
     int nnz_initial = A_CSRCPU->nnz;
 
     TicToc cudaalloctime("cudaalloctime");
@@ -85,8 +87,6 @@ int main(int argc, char * argv[]) {
 
         auto neighbour_list = deepCopyMatrixCSRGPUtoGPU(A_CSR);
         auto A_CSC = convertCSRGPU_cudaSparse(A_CSR, cudasparse_handle);
-        
-        readtime.toc();
         
         TicToc rowcolsum("Row Col abs sum");
         rowcolsum.tic();
