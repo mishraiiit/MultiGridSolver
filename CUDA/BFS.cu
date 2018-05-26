@@ -22,6 +22,7 @@ __global__ void bfs_frontier_kernel(MatrixCSR * matrix, int * visited, int * dis
 }
 
 int * bfs(int n, MatrixCSR * matrix_gpu, int * max_distance) {
+    fprintf(stderr, "Normal BFS running\n");
     int * visited;
     cudaMalloc(&visited, sizeof(int) * n);
 
@@ -107,6 +108,7 @@ __global__ void write_vertex_fronteir (int edge_fronteir_size, int * vertex_fron
 }
 
 int * bfs_work_efficient(int n, MatrixCSR * matrix_gpu, int * max_distance) {
+    fprintf(stderr, "Work efficient BFS running\n");
     int * vertex_fronteir;
     cudaMalloc(&vertex_fronteir, sizeof(int) * n);
 

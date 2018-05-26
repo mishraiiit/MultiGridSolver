@@ -11,6 +11,7 @@
 
 
 #define BLELLOCH
+#define BFS_WORK_EFFICIENT
 // #define THRUST_SORT
 // #define DEBUG
 // #define SKIP_LEVELS 2
@@ -77,6 +78,9 @@ int main(int argc, char * argv[]) {
     int * aggregation_count;
     assert(cudaMalloc(&aggregation_count, sizeof(int) * A_CSRCPU->rows) == cudaSuccess);
 
+    int * nodes;
+    assert(cudaMalloc(&nodes, sizeof(int) * A_CSRCPU->rows) == cudaSuccess);
+
     cudaalloctime.toc();
 
     TicToc main_timer("Main timer");
@@ -89,6 +93,12 @@ int main(int argc, char * argv[]) {
             printf("CSR CPU\n");
             printCSRCPU(deepCopyMatrixCSRGPUtoCPU(A_CSR));
         #endif
+
+
+        TicToc sorttime("Sorttime");
+        sorttime.tic();
+        thrust::sort(thrust::device, nodes, nodes + A_CSRCPU->rows);
+        sorttime.toc();
 
         A_CSRCPU = shallowCopyMatrixCSRGPUtoCPU(A_CSR);
 
@@ -139,7 +149,13 @@ int main(int argc, char * argv[]) {
         TicToc bfstime("BFS time...");
         bfstime.tic();
         int max_distance;
-        int * bfs_distance = bfs_work_efficient(A_CSRCPU->rows, A_CSR, &max_distance);
+
+        #ifdef BFS_WORK_EFFICIENT
+            int * bfs_distance = bfs_work_efficient(A_CSRCPU->rows, A_CSR, &max_distance);
+        #else
+            int * bfs_distance = bfs(A_CSRCPU->rows, A_CSR, &max_distance);
+        #endif
+
         #ifdef DEBUG
             printf("PASS %d\n", pass);
             printf("BFS\n");
