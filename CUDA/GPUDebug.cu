@@ -108,13 +108,29 @@ __host__ __device__ void swap_variables(T & u, T & v) {
     Parameters : 
         T * node : Address of the variable.
         U value : Value to change it to.
-	
-	Comments : Launch this kernel with parameters <<<1,1>>>.
+    
+    Comments : Launch this kernel with parameters <<<1,1>>>.
 */
 
 template<typename T, typename U>
 __global__ void assign(T * node, U value) {
     * node = value;
+}
+
+/*
+    Description : Assign a value to array on GPU.
+
+    Parameters : 
+        int n : Array size.
+        T * arr : Array.
+        U value : Value to change it to.
+*/
+
+template<typename T, typename U>
+__global__ void initialize_array(int n, T * arr, U value) {
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if(i >= n) return;
+    arr[i] = value;
 }
 
 #endif

@@ -5,6 +5,8 @@
 #include <ctime>
 #include <algorithm>
 #include <fstream>
+#include <thrust/sort.h>
+#include <thrust/execution_policy.h>
 #include "GPUDebug.cu"
 
 __global__ void computeRowColAbsSum(MatrixCSR * matrix_csr, MatrixCSC * matrix_csc, bool * ising0, float ktg, int iteration) {
@@ -153,23 +155,34 @@ __host__ __device__ float muij(int i, int j, MatrixCSR * matrix_csr, float * Si)
 }
 
 __global__ void sortNeighbourList(MatrixCSR * matrix, MatrixCSR * neighbour_list, float * Si, bool * allowed, float ktg, bool * ising0) {
-    int id = blockIdx.x * blockDim.x + threadIdx.x;
+    const int id = blockIdx.x * blockDim.x + threadIdx.x;
     if(id >= matrix->rows)
         return;
 
     int row_start = matrix->i[id];
     int row_end = matrix->i[id + 1];
 
-    for(int i = row_start; i < row_end; i++) {
-        for(int j = i + 1; j < row_end; j++) {
-            int id1 = neighbour_list->j[i];
-            int id2 = neighbour_list->j[j];
-            if(muij(id, id2, matrix, Si) < muij(id, id1, matrix, Si)) {
-                swap_variables(neighbour_list->j[i], neighbour_list->j[j]);
-                swap_variables(neighbour_list->val[i], neighbour_list->val[j]);
+    #ifdef THRUST_SORT
+
+        auto l = [&id, &matrix, &Si](int a, int b) {
+            return muij(id, a, matrix, Si) < muij(id, b, matrix, Si);
+        };
+
+        thrust::stable_sort(thrust::seq, neighbour_list->j + row_start, neighbour_list->j + row_end, l);
+
+    #else
+
+        for(int i = row_start; i < row_end; i++) {
+            for(int j = i + 1; j < row_end; j++) {
+                int id1 = neighbour_list->j[i];
+                int id2 = neighbour_list->j[j];
+                if(muij(id, id2, matrix, Si) < muij(id, id1, matrix, Si)) {
+                    swap_variables(neighbour_list->j[i], neighbour_list->j[j]);
+                }
             }
         }
-    }
+    
+    #endif
 
     for(int i = row_start; i < row_end; i++) {
         int id1 = neighbour_list->j[i];
@@ -179,30 +192,6 @@ __global__ void sortNeighbourList(MatrixCSR * matrix, MatrixCSR * neighbour_list
             allowed[i] = false;
         }
     }    
-}
-
-__global__ void printNeighbourList(MatrixCSR * matrix, MatrixCSR * neighbour_list, float * Si) {
-
-    for(int id = 0; id < neighbour_list->rows; id++) {
-        int row_start = neighbour_list->i[id];
-        int row_end = neighbour_list->i[id + 1];
-
-        printf("Neighbours for %d\n", id);
-        for(int i = row_start; i < row_end; i++) {
-            printf("%d %lf\n", neighbour_list->j[i], muij(id, neighbour_list->j[i], matrix, Si));        
-        }
-    }
-    printf("\n");
-}
-
-__global__ void mis(MatrixCSR * matrix, int * inmis) {
-    for(int i = 0; i < 10000; i++) {
-        if(((i / 100) + (i % 100)) % 2 == 0) {
-            inmis[i] = true;
-        } else {
-            inmis[i] = false;
-        }
-    }
 }
 
 __global__ void aggregation_initial(int n, int * paired_with) {
@@ -247,24 +236,6 @@ __global__ void aggregation(int n, MatrixCSR * neighbour_list, int * paired_with
     }
     paired_with[i] = i;
 }
-
-__global__ void bfs_frontier_kernel(MatrixCSR * matrix, bool * visited, int * distance, bool * frontier, int * new_found) {
-    int i = blockDim.x * blockIdx.x + threadIdx.x;
-    if(i >= matrix->rows) return;
-    if(frontier[i]) {
-        visited[i] = true;
-        frontier[i] = false;
-        * new_found = 1;
-        for(int j = matrix->i[i]; j < matrix->i[i + 1]; j++) {
-            int nj = matrix->j[j];
-            if(!visited[nj]) {
-                frontier[nj] = true;
-                distance[nj] = distance[i] + 1;
-            }
-        }
-    }
-}
-
 __global__ void get_useful_pairs(int n, int * paired_with, int * useful_pairs) {
     int i = blockDim.x * blockIdx.x + threadIdx.x;
     if(i >= n)
@@ -286,33 +257,6 @@ __global__ void gpu_prefix_sum_kernel(int n, int * useful_pairs) {
 
 void gpu_prefix_sum(int n, int * useful_pairs) {
     gpu_prefix_sum_kernel <<<1,1>>> (n, useful_pairs);
-}
-
-int * bfs(int n, MatrixCSR * matrix_gpu, int * max_distance) {
-    bool * visited;
-    cudaMalloc(&visited, sizeof(bool) * n);
-
-    int * distance;
-    cudaMalloc(&distance, sizeof(int) * n);
-
-    bool * frontier;
-    cudaMalloc(&frontier, sizeof(int) * n);
-
-    assign<<<1,1>>> (&frontier[0], 1);
-    assign<<<1,1>>> (&distance[0], 0);
-
-    int * new_found;
-    cudaMallocManaged(&new_found, sizeof(int));
-    * max_distance = 0;
-    do {
-        * new_found = false;
-        * max_distance = * max_distance + 1;
-        bfs_frontier_kernel <<<(n + 1024 - 1)/ 1024, 1024>>>(matrix_gpu, visited, distance, frontier, new_found);
-        cudaDeviceSynchronize();
-    } while(* new_found);
-
-    return distance;
-
 }
 
 __global__ void mark_aggregations(int n, int * aggregations, int * useful_pairs) {

@@ -4,8 +4,8 @@
 #include "TicToc.cpp"
 #include "GPUDebug.cu"
 #include "Aggregation.cu"
-#include <thrust/scan.h>
-#include <thrust/execution_policy.h>
+#include "BFS.cu"
+#include "PrefixSum.cu"
 #include <cusparse.h>
 #include <string>
 
@@ -219,10 +219,11 @@ int main(int argc, char * argv[]) {
             P_cumm = spmatrixmult_cudaSparse(P_cumm, P_gpu, cudasparse_handle);
 
         
-        // freeMatrixCSRGPU(P_gpu);
-        // freeMatrixCSRGPU(P_transpose_gpu);
-        // freeMatrixCSRGPU(A_CSR);
-        // freeMatrixCSCGPU(A_CSC);
+        cudaFree(bfs_distance);
+        freeMatrixCSRGPU(P_gpu);
+        freeMatrixCSRGPU(P_transpose_gpu);
+        freeMatrixCSRGPU(A_CSR);
+        freeMatrixCSCGPU(A_CSC);
 
         A_CSR = newA_gpu;
     }

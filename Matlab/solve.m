@@ -1,12 +1,12 @@
 %% 
 
-A = mmread('../../matrices/poisson10000.mtx');
+A = mmread('../matrices/poisson10000.mtx');
 size(A)
 nrows = size(A, 1);
 
 b = rand(nrows,1);
 
-P = mmread('../../matrices/poisson10000promatrix.mtx');
+P = mmread('../matrices/poisson10000promatrix.mtx');
 tic
 %[P, ind] = agtwolev(A, 2, 0, 2, 10);
 toc
