@@ -127,10 +127,15 @@ __global__ void assign(T * node, U value) {
 */
 
 template<typename T, typename U>
-__global__ void initialize_array(int n, T * arr, U value) {
+__global__ void initialize_array_kernel(int n, T * arr, U value) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     if(i >= n) return;
     arr[i] = value;
+}
+
+template<typename T, typename U>
+void initialize_array(int n, T * arr, U value) {
+    initialize_array_kernel <<< (n + 1024 - 1) / 1024, 1024 >>> (n, arr, value);
 }
 
 #endif

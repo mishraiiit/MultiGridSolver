@@ -9,7 +9,7 @@
 #include <thrust/execution_policy.h>
 #include "GPUDebug.cu"
 
-__global__ void computeRowColAbsSum(MatrixCSR * matrix_csr, MatrixCSC * matrix_csc, bool * ising0, float ktg, int iteration) {
+__global__ void computeRowColAbsSum(MatrixCSR * matrix_csr, MatrixCSC * matrix_csc, int * ising0, float ktg, int iteration) {
 
     int id = blockIdx.x * blockDim.x + threadIdx.x;
     if(id >= matrix_csr->rows)
@@ -154,7 +154,7 @@ __host__ __device__ float muij(int i, int j, MatrixCSR * matrix_csr, float * Si)
     return num / den;
 }
 
-__global__ void sortNeighbourList(MatrixCSR * matrix, MatrixCSR * neighbour_list, float * Si, bool * allowed, float ktg, bool * ising0) {
+__global__ void sortNeighbourList(MatrixCSR * matrix, MatrixCSR * neighbour_list, float * Si, int * allowed, float ktg, int * ising0) {
     const int id = blockIdx.x * blockDim.x + threadIdx.x;
     if(id >= matrix->rows)
         return;
@@ -201,7 +201,7 @@ __global__ void aggregation_initial(int n, int * paired_with) {
     }
 }
 
-__device__ bool okay(int i, int j, MatrixCSR * matrix, float * Si) {
+__device__ int okay(int i, int j, MatrixCSR * matrix, float * Si) {
     return (getElementMatrixCSR(matrix, i, i) - Si[i] + getElementMatrixCSR(matrix, j, j) - Si[j] >= 0);
 }
 
@@ -217,7 +217,7 @@ __device__ bool okay(int i, int j, MatrixCSR * matrix, float * Si) {
     ising0 contains the node which are to be kept out of aggregation.
     bfs_distance tells the distance of a node from node 0.
 */
-__global__ void aggregation(int n, MatrixCSR * neighbour_list, int * paired_with, bool * allowed, MatrixCSR * matrix, float * Si, int distance, bool * ising0, int * bfs_distance, int levels) {
+__global__ void aggregation(int n, MatrixCSR * neighbour_list, int * paired_with, int * allowed, MatrixCSR * matrix, float * Si, int distance, int * ising0, int * bfs_distance, int levels) {
     int i = blockDim.x * blockIdx.x + threadIdx.x;
     if(i >= n) return;
     if(ising0[i]) return;
@@ -247,16 +247,6 @@ __global__ void get_useful_pairs(int n, int * paired_with, int * useful_pairs) {
     } else {
         useful_pairs[i] = 1;
     }
-}
-
-__global__ void gpu_prefix_sum_kernel(int n, int * useful_pairs) {
-    for(int i = 1; i < n; i++) {
-        useful_pairs[i] += useful_pairs[i - 1];
-    }
-}
-
-void gpu_prefix_sum(int n, int * useful_pairs) {
-    gpu_prefix_sum_kernel <<<1,1>>> (n, useful_pairs);
 }
 
 __global__ void mark_aggregations(int n, int * aggregations, int * useful_pairs) {

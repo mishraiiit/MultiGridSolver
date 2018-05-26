@@ -31,8 +31,8 @@ int * bfs(int n, MatrixCSR * matrix_gpu, int * max_distance) {
     int * frontier;
     cudaMalloc(&frontier, sizeof(int) * n);
 
-    initialize_array <<< (n + 1024 - 1) / 1024 , 1024 >>> (n, visited, false);
-    initialize_array <<< (n + 1024 - 1) / 1024 , 1024 >>> (n, frontier, false);
+    initialize_array(n, visited, false);
+    initialize_array(n, frontier, false);
 
     assign<<<1,1>>> (&frontier[0], 1);
     assign<<<1,1>>> (&distance[0], 0);
@@ -127,13 +127,7 @@ int * bfs_work_efficient(int n, MatrixCSR * matrix_gpu, int * max_distance) {
 
     int vertex_fronteir_size = 1;
 
-    initialize_array<<<(n + 1024 - 1) / 1024, 1024>>> (n, vertex_fronteir, 0);
-    initialize_array<<<(n + 1024 - 1) / 1024, 1024>>> (n, visited_by, -1);
-    initialize_array<<<(n + 1024 - 1) / 1024, 1024>>> (n, edge_fronteir, 0);
-    initialize_array<<<(n + 1024 - 1) / 1024, 1024>>> (n, offsets, 0);
-    initialize_array<<<(n + 1024 - 1) / 1024, 1024>>> (n, allowed, 0);
-    initialize_array<<<(n + 1024 - 1) / 1024, 1024>>> (n, distance, 0);
-
+    initialize_array(n, visited_by, -1);
 
     assign<<<1,1>>> (vertex_fronteir, 0);
     assign<<<1,1>>> (distance, 0);
@@ -142,16 +136,7 @@ int * bfs_work_efficient(int n, MatrixCSR * matrix_gpu, int * max_distance) {
     int iterations = 1;
     while(vertex_fronteir_size != 0) {
 
-	//int * temp = (int * ) malloc(sizeof(int) * vertex_fronteir_size);
-	//cudaMemcpy(temp, vertex_fronteir, sizeof(int) * vertex_fronteir_size, cudaMemcpyDeviceToHost);
-
-	//for(int i = 0; i < vertex_fronteir_size; i++) {
-	//	printf("%d ", temp[i]);
-	//}
-	//printf("\n");
-
         *max_distance = ++iterations;
-        initialize_array<<<(n + 1024 - 1) / 1024, 1024>>> (n, allowed, 0);
         int blocks = (vertex_fronteir_size + 1024 - 1) / 1024;
         int threads = 1024;
         int edge_fronteir_size;
@@ -168,11 +153,11 @@ int * bfs_work_efficient(int n, MatrixCSR * matrix_gpu, int * max_distance) {
         cudaMemcpy(&vertex_fronteir_size, allowed + edge_fronteir_size - 1, sizeof(int), cudaMemcpyDeviceToHost);
     }
 
-    // cudaFree(vertex_fronteir);
-    // cudaFree(visited_by);
-    // cudaFree(edge_fronteir);
-    // cudaFree(offsets);
-    // cudaFree(allowed);
+    cudaFree(vertex_fronteir);
+    cudaFree(visited_by);
+    cudaFree(edge_fronteir);
+    cudaFree(offsets);
+    cudaFree(allowed);
     
     return distance;
 }
