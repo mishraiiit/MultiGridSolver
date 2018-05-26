@@ -9,6 +9,8 @@
 #include <cusparse.h>
 #include <string>
 
+
+#define BLELLOCH
 // #define THRUST_SORT
 // #define DEBUG
 // #define SKIP_LEVELS 2
@@ -137,7 +139,7 @@ int main(int argc, char * argv[]) {
         TicToc bfstime("BFS time...");
         bfstime.tic();
         int max_distance;
-        int * bfs_distance = bfs(A_CSRCPU->rows, A_CSR, &max_distance);
+        int * bfs_distance = bfs_work_efficient(A_CSRCPU->rows, A_CSR, &max_distance);
         #ifdef DEBUG
             printf("PASS %d\n", pass);
             printf("BFS\n");
