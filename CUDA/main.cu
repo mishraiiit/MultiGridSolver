@@ -94,12 +94,6 @@ int main(int argc, char * argv[]) {
             printCSRCPU(deepCopyMatrixCSRGPUtoCPU(A_CSR));
         #endif
 
-
-        TicToc sorttime("Sorttime");
-        sorttime.tic();
-        thrust::sort(thrust::device, nodes, nodes + A_CSRCPU->rows);
-        sorttime.toc();
-
         A_CSRCPU = shallowCopyMatrixCSRGPUtoCPU(A_CSR);
 
         int nnz_now = A_CSRCPU->nnz;
@@ -169,6 +163,11 @@ int main(int argc, char * argv[]) {
         #endif
         cudaDeviceSynchronize();
         bfstime.toc();
+
+        TicToc sorttime("Sorttime");
+        sorttime.tic();
+        thrust::sort(thrust::device, nodes, nodes + A_CSRCPU->rows);
+        sorttime.toc();
 
         TicToc sortcomputation("Sort computation");
         sortcomputation.tic();
