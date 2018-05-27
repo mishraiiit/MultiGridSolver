@@ -1,3 +1,10 @@
+// #define BLELLOCH
+#define BFS_WORK_EFFICIENT
+#define AGGREGATION_WORK_EFFICIENT
+#define NUMBER_OF_THREADS 1024
+// #define DEBUG
+// #define THRUST_SORT
+// #define SKIP_LEVELS 2
 #include "MatrixIO.cu"
 #include "MatrixAccess.cu"
 #include "MatrixOperations.cu"
@@ -8,13 +15,6 @@
 #include "PrefixSum.cu"
 #include <cusparse.h>
 #include <string>
-
-
-#define BLELLOCH
-#define BFS_WORK_EFFICIENT
-// #define THRUST_SORT
-// #define DEBUG
-// #define SKIP_LEVELS 2
 
 int main(int argc, char * argv[]) {
 
@@ -104,8 +104,8 @@ int main(int argc, char * argv[]) {
         
         TicToc rowcolsum("Row Col abs sum");
         rowcolsum.tic();
-        int number_of_blocks = (A_CSRCPU->rows + 1024 - 1) / 1024;
-        int number_of_threads = 1024;
+        int number_of_blocks = (A_CSRCPU->rows + NUMBER_OF_THREADS - 1) / NUMBER_OF_THREADS;
+        int number_of_threads = NUMBER_OF_THREADS;
         computeRowColAbsSum <<<number_of_blocks, number_of_threads>>>
         (A_CSR, A_CSC, ising0, ktg, pass);
         cudaDeviceSynchronize();
@@ -145,10 +145,13 @@ int main(int argc, char * argv[]) {
         int max_distance;
 
         #ifdef BFS_WORK_EFFICIENT
-            int * bfs_distance = bfs_work_efficient(A_CSRCPU->rows, A_CSR, &max_distance);
+            std::pair<int *, MatrixCSR * > bfs_result = bfs_work_efficient(A_CSRCPU->rows, A_CSR, &max_distance);;
         #else
-            int * bfs_distance = bfs(A_CSRCPU->rows, A_CSR, &max_distance);
+            std::pair<int *, MatrixCSR * > bfs_result = bfs(A_CSRCPU->rows, A_CSR, &max_distance);;
         #endif
+
+        int * bfs_distance = bfs_result.first;
+        MatrixCSR * distance_csr = bfs_result.second;
 
         #ifdef DEBUG
             printf("PASS %d\n", pass);
@@ -161,13 +164,21 @@ int main(int argc, char * argv[]) {
             printf("\n");
             free(temp_bfs);
         #endif
+
+        #ifdef DEBUG
+            printf("PASS %d\n", pass);
+            printf("Level distance CSR\n");
+            for(int row = 0; row < distance_csr->rows; row++) {
+                printf("Distance %d : ", row);
+                for(int ptr = distance_csr->i[row]; ptr < distance_csr->i[row + 1]; ptr++) {
+                    printf("%d ", distance_csr->j[ptr]);
+                }
+                printf("\n");
+            }
+        #endif
+
         cudaDeviceSynchronize();
         bfstime.toc();
-
-        TicToc sorttime("Sorttime");
-        sorttime.tic();
-        thrust::sort(thrust::device, nodes, nodes + A_CSRCPU->rows);
-        sorttime.toc();
 
         TicToc sortcomputation("Sort computation");
         sortcomputation.tic();
@@ -187,18 +198,31 @@ int main(int argc, char * argv[]) {
 
         initialize_array(A_CSRCPU->rows,  paired_with, -1);
 
-        #ifdef SKIP_LEVELS
-            int skip_levels = SKIP_LEVELS;
+        #ifdef AGGREGATION_WORK_EFFICIENT
+            int skip_levels = distance_csr->rows;
+            for(int row = 0; row < skip_levels; row++) {
+                int elements = distance_csr->i[row + 1] - distance_csr->i[row];
+                int number_of_blocks = (elements + NUMBER_OF_THREADS - 1) / NUMBER_OF_THREADS;
+                int number_of_threads = NUMBER_OF_THREADS;
+                aggregation<<<number_of_blocks, number_of_threads>>>
+                (A_CSRCPU->rows, neighbour_list , paired_with, allowed, A_CSR, Si, row,
+                 ising0, bfs_distance, distance_csr, distance_csr->i[row], elements);
+                cudaDeviceSynchronize();
+            }
         #else
-            int skip_levels = max_distance + 1;
-        #endif 
+            #ifdef SKIP_LEVELS
+                int skip_levels = SKIP_LEVELS;
+            #else
+                int skip_levels = max_distance + 1;
+            #endif 
 
-        for(int i = 0; i < skip_levels; i++) {
-            aggregation<<<number_of_blocks, number_of_threads>>>
-            (A_CSRCPU->rows, neighbour_list, paired_with, allowed, A_CSR, Si, i,
-             ising0, bfs_distance, skip_levels);
-            cudaDeviceSynchronize();
-        }
+            for(int i = 0; i < skip_levels; i++) {
+                aggregation<<<number_of_blocks, number_of_threads>>>
+                (A_CSRCPU->rows, neighbour_list, paired_with, allowed, A_CSR, Si, i,
+                 ising0, bfs_distance, skip_levels);
+                cudaDeviceSynchronize();
+            }
+        #endif
 
         #ifdef DEBUG
             printf("PASS %d\n", pass);
@@ -274,7 +298,7 @@ int main(int argc, char * argv[]) {
         #endif
         cudaDeviceSynchronize();
 
-        get_aggregations_count <<< (nc + 1024 - 1) / 1024, 1024 >>>
+        get_aggregations_count <<< (nc + NUMBER_OF_THREADS - 1) / NUMBER_OF_THREADS, NUMBER_OF_THREADS >>>
         (nc, aggregations, paired_with, aggregation_count);
         cudaDeviceSynchronize();
         #ifdef DEBUG
@@ -329,7 +353,7 @@ int main(int argc, char * argv[]) {
             sizeof(float) * (P_transpose_shallow_cpu->nnz)) == cudaSuccess);
 
         assign<<<1,1>>> (&P_transpose_shallow_cpu->i[0], 0);
-        create_p_matrix_transpose <<< (nc + 1024 - 1) / 1024, 1024>>>
+        create_p_matrix_transpose <<< (nc + NUMBER_OF_THREADS - 1) / NUMBER_OF_THREADS, NUMBER_OF_THREADS>>>
         (nc, aggregations, paired_with, aggregation_count,
             P_transpose_shallow_cpu->i, P_transpose_shallow_cpu->j,
             P_transpose_shallow_cpu->val);

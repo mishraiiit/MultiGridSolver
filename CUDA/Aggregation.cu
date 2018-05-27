@@ -194,13 +194,6 @@ __global__ void sortNeighbourList(MatrixCSR * matrix, MatrixCSR * neighbour_list
     }    
 }
 
-__global__ void aggregation_initial(int n, int * paired_with) {
-    int id = blockDim.x * blockIdx.x + threadIdx.x;
-    if(id < n) {
-        paired_with[id] = -1;
-    }
-}
-
 __device__ int okay(int i, int j, MatrixCSR * matrix, float * Si) {
     return (getElementMatrixCSR(matrix, i, i) - Si[i] + getElementMatrixCSR(matrix, j, j) - Si[j] >= 0);
 }
@@ -217,25 +210,54 @@ __device__ int okay(int i, int j, MatrixCSR * matrix, float * Si) {
     ising0 contains the node which are to be kept out of aggregation.
     bfs_distance tells the distance of a node from node 0.
 */
-__global__ void aggregation(int n, MatrixCSR * neighbour_list, int * paired_with, int * allowed, MatrixCSR * matrix, float * Si, int distance, int * ising0, int * bfs_distance, int levels) {
-    int i = blockDim.x * blockIdx.x + threadIdx.x;
-    if(i >= n) return;
-    if(ising0[i]) return;
-    int current_distance = bfs_distance[i];
-    if(bfs_distance[i]  % levels != distance) return;
-    if(paired_with[i] != -1) return;
-    for(int j = neighbour_list->i[i]; j < neighbour_list->i[i + 1]; j++) {
-        if(!allowed[j]) continue;
-        int possible_j = neighbour_list->j[j];
-        if(current_distance == bfs_distance[possible_j]) continue;
-        if(!okay(i, possible_j, matrix, Si)) continue;
-        if(atomicCAS(&paired_with[possible_j], -1, i) == -1) {
-            paired_with[i] = possible_j;
-            return;
+
+#ifdef AGGREGATION_WORK_EFFICIENT
+
+    __global__ void aggregation(int n, MatrixCSR * neighbour_list , int * paired_with, int * allowed, MatrixCSR * matrix, float * Si, int distance, int * ising0, int * bfs_distance, MatrixCSR * distance_csr, int offset, int total) {
+        int i = blockDim.x * blockIdx.x + threadIdx.x;
+        if(i >= total) return;
+        i = distance_csr->j[offset + i];
+        if(ising0[i]) return;
+        int current_distance = bfs_distance[i];
+        assert(current_distance == distance);
+        if(paired_with[i] != -1) return;
+        for(int j = neighbour_list->i[i]; j < neighbour_list->i[i + 1]; j++) {
+            if(!allowed[j]) continue;
+            int possible_j = neighbour_list->j[j];
+            if(current_distance == bfs_distance[possible_j]) continue;
+            if(!okay(i, possible_j, matrix, Si)) continue;
+            if(atomicCAS(&paired_with[possible_j], -1, i) == -1) {
+                paired_with[i] = possible_j;
+                return;
+            }
         }
+        paired_with[i] = i;
     }
-    paired_with[i] = i;
-}
+
+#else
+
+    __global__ void aggregation(int n, MatrixCSR * neighbour_list, int * paired_with, int * allowed, MatrixCSR * matrix, float * Si, int distance, int * ising0, int * bfs_distance, int levels) {
+        int i = blockDim.x * blockIdx.x + threadIdx.x;
+        if(i >= n) return;
+        if(ising0[i]) return;
+        int current_distance = bfs_distance[i];
+        if(current_distance  % levels != distance) return;
+        if(paired_with[i] != -1) return;
+        for(int j = neighbour_list->i[i]; j < neighbour_list->i[i + 1]; j++) {
+            if(!allowed[j]) continue;
+            int possible_j = neighbour_list->j[j];
+            if(current_distance == bfs_distance[possible_j]) continue;
+            if(!okay(i, possible_j, matrix, Si)) continue;
+            if(atomicCAS(&paired_with[possible_j], -1, i) == -1) {
+                paired_with[i] = possible_j;
+                return;
+            }
+        }
+        paired_with[i] = i;
+    }
+
+#endif
+
 __global__ void get_useful_pairs(int n, int * paired_with, int * useful_pairs) {
     int i = blockDim.x * blockIdx.x + threadIdx.x;
     if(i >= n)

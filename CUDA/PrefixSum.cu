@@ -37,7 +37,7 @@ void prefixSumGPU(int * in, int n) {
         int * out;
         cudaMalloc(&out, sizeof(int) * n);
         sum_scan_blelloch(out, in, n);
-        copyToInput <<< (n + 1024 - 1) / 1024, 1024 >>> (out, in, n);
+        copyToInput <<< (n + NUMBER_OF_THREADS - 1) / NUMBER_OF_THREADS, NUMBER_OF_THREADS >>> (out, in, n);
         cudaFree(out);
     #else
         prefixSumGPUSingleThread(in, n);

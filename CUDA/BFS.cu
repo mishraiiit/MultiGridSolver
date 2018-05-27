@@ -21,7 +21,7 @@ __global__ void bfs_frontier_kernel(MatrixCSR * matrix, int * visited, int * dis
     }
 }
 
-int * bfs(int n, MatrixCSR * matrix_gpu, int * max_distance) {
+std::pair<int *, MatrixCSR *> bfs(int n, MatrixCSR * matrix_gpu, int * max_distance) {
     fprintf(stderr, "Normal BFS running\n");
     int * visited;
     cudaMalloc(&visited, sizeof(int) * n);
@@ -44,14 +44,14 @@ int * bfs(int n, MatrixCSR * matrix_gpu, int * max_distance) {
     do {
         * new_found = false;
         * max_distance = * max_distance + 1;
-        bfs_frontier_kernel <<<(n + 1024 - 1)/ 1024, 1024>>>(matrix_gpu, visited, distance, frontier, new_found);
+        bfs_frontier_kernel <<<(n + NUMBER_OF_THREADS - 1)/ NUMBER_OF_THREADS, NUMBER_OF_THREADS>>>(matrix_gpu, visited, distance, frontier, new_found);
         cudaDeviceSynchronize();
     } while(* new_found);
 
     cudaFree(visited);
     cudaFree(frontier);
 
-    return distance;
+    return {distance, NULL};
 
 }
 
@@ -87,16 +87,32 @@ __global__ void culling(int total, int * offsets, int * vertices, int * edges, i
     int count = 0;
     for(int i = matrix->i[vertex]; i < matrix->i[vertex + 1]; i++) {
         int v = matrix->j[i];
-	if(visited_by[v] == vertex) {
-        	allowed[offset + count] = 1;
-        	distance[v] = dist + 1;
-	} else {
-		allowed[offset + count] = 0;
-	}
+    if(visited_by[v] == vertex) {
+            allowed[offset + count] = 1;
+            distance[v] = dist + 1;
+    } else {
+        allowed[offset + count] = 0;
+    }
         count++;
     }
 }
 
+#ifdef AGGREGATION_WORK_EFFICIENT
+
+__global__ void write_vertex_fronteir (int edge_fronteir_size, int * vertex_fronteir, int * edge_fronteir, int * allowed, int offset, MatrixCSR * level_matrix) {
+    int i = blockDim.x * blockIdx.x + threadIdx.x;
+    if(i >= edge_fronteir_size) return;
+    int prev = (i == 0) ? 0 : allowed[i - 1];
+    int curr = allowed[i];
+    if(prev != curr) {
+        int node = edge_fronteir[i];
+        level_matrix->j[offset + prev] = node;
+        vertex_fronteir[prev] = node;
+    }
+}
+
+#else
+    
 __global__ void write_vertex_fronteir (int edge_fronteir_size, int * vertex_fronteir, int * edge_fronteir, int * allowed) {
     int i = blockDim.x * blockIdx.x + threadIdx.x;
     if(i >= edge_fronteir_size) return;
@@ -107,7 +123,94 @@ __global__ void write_vertex_fronteir (int edge_fronteir_size, int * vertex_fron
     }
 }
 
-int * bfs_work_efficient(int n, MatrixCSR * matrix_gpu, int * max_distance) {
+#endif
+
+#ifdef AGGREGATION_WORK_EFFICIENT
+
+std::pair<int *, MatrixCSR *> bfs_work_efficient(int n, MatrixCSR * matrix_gpu, int * max_distance) {
+    fprintf(stderr, "Work efficient BFS running\n");
+    int * vertex_fronteir;
+    cudaMalloc(&vertex_fronteir, sizeof(int) * n);
+
+    int * visited_by;
+    cudaMalloc(&visited_by, sizeof(int) * n);
+    
+    int * edge_fronteir;
+    cudaMalloc(&edge_fronteir, sizeof(int) * n);
+
+    int * offsets;
+    cudaMalloc(&offsets, sizeof(int) * n);
+
+    int * allowed;
+    cudaMalloc(&allowed, sizeof(int) * n);
+
+    int * distance;
+    cudaMalloc(&distance, sizeof(int) * n);
+
+    int vertex_fronteir_size = 1;
+
+    initialize_array(n, visited_by, -1);
+
+    assign<<<1,1>>> (vertex_fronteir, 0);
+    assign<<<1,1>>> (distance, 0);
+    assign<<<1,1>>> (visited_by, -2);
+
+
+    MatrixCSR * toReturn = NULL;
+    #ifdef AGGREGATION_WORK_EFFICIENT
+        cudaMallocManaged(&toReturn, sizeof(MatrixCSR));
+        cudaMallocManaged(&toReturn->i, sizeof(int) * n);
+        cudaMallocManaged(&toReturn->j, sizeof(int) * (n + 1));
+        toReturn->nnz = n;
+        int offset = 1;
+        toReturn->j[0] = 0;
+        toReturn->i[0] = 0;
+        toReturn->i[1] = offset;
+    #endif
+
+    int iterations = 1;
+    while(true) {
+        int blocks = (vertex_fronteir_size + NUMBER_OF_THREADS - 1) / NUMBER_OF_THREADS;
+        int threads = NUMBER_OF_THREADS;
+        int edge_fronteir_size;
+        write_sizes <<<blocks, threads >>> (vertex_fronteir_size, offsets, vertex_fronteir, matrix_gpu);
+        prefixSumGPU(offsets, vertex_fronteir_size);
+        cudaMemcpy(&edge_fronteir_size, offsets + vertex_fronteir_size - 1, sizeof(int), cudaMemcpyDeviceToHost);
+        assert(edge_fronteir_size < n);
+        assert(edge_fronteir_size != 0);
+        write_edge_fronteir <<<blocks, threads >>> (vertex_fronteir_size, offsets, matrix_gpu, edge_fronteir, vertex_fronteir, visited_by, allowed);
+        culling <<<blocks, threads >>> (vertex_fronteir_size, offsets, vertex_fronteir, edge_fronteir, allowed, matrix_gpu, distance, visited_by);
+        prefixSumGPU(allowed, edge_fronteir_size);
+        cudaMemcpy(&vertex_fronteir_size, allowed + edge_fronteir_size - 1, sizeof(int), cudaMemcpyDeviceToHost);
+        if(vertex_fronteir_size == 0)
+            break;
+        #ifdef AGGREGATION_WORK_EFFICIENT
+            write_vertex_fronteir <<< (edge_fronteir_size + NUMBER_OF_THREADS - 1) / NUMBER_OF_THREADS, NUMBER_OF_THREADS >>> (edge_fronteir_size, vertex_fronteir, edge_fronteir, allowed, offset, toReturn);
+            offset += vertex_fronteir_size;
+            toReturn->i[iterations + 1] = offset;
+        #else
+            write_vertex_fronteir <<< (edge_fronteir_size + NUMBER_OF_THREADS - 1) / NUMBER_OF_THREADS, NUMBER_OF_THREADS >>> (edge_fronteir_size, vertex_fronteir, edge_fronteir, allowed);
+        #endif
+        *max_distance = ++iterations;
+    }
+
+    #ifdef AGGREGATION_WORK_EFFICIENT
+        toReturn->rows = *max_distance;
+        toReturn->cols = n;
+    #endif
+
+    cudaFree(vertex_fronteir);
+    cudaFree(visited_by);
+    cudaFree(edge_fronteir);
+    cudaFree(offsets);
+    cudaFree(allowed);
+    
+    return {distance, toReturn};
+}
+
+#else
+
+std::pair<int *, MatrixCSR *> bfs_work_efficient(int n, MatrixCSR * matrix_gpu, int * max_distance) {
     fprintf(stderr, "Work efficient BFS running\n");
     int * vertex_fronteir;
     cudaMalloc(&vertex_fronteir, sizeof(int) * n);
@@ -146,8 +249,8 @@ int * bfs_work_efficient(int n, MatrixCSR * matrix_gpu, int * max_distance) {
         prefixSumGPU(offsets, vertex_fronteir_size);
         cudaMemcpy(&edge_fronteir_size, offsets + vertex_fronteir_size - 1, sizeof(int), cudaMemcpyDeviceToHost);
         assert(edge_fronteir_size < n);
-	    if(edge_fronteir_size == 0)
-		      break;
+        if(edge_fronteir_size == 0)
+              break;
         write_edge_fronteir <<<blocks, threads >>> (vertex_fronteir_size, offsets, matrix_gpu, edge_fronteir, vertex_fronteir, visited_by, allowed);
         culling <<<blocks, threads >>> (vertex_fronteir_size, offsets, vertex_fronteir, edge_fronteir, allowed, matrix_gpu, distance, visited_by);
         prefixSumGPU(allowed, edge_fronteir_size);
@@ -161,7 +264,9 @@ int * bfs_work_efficient(int n, MatrixCSR * matrix_gpu, int * max_distance) {
     cudaFree(offsets);
     cudaFree(allowed);
     
-    return distance;
+    return {distance, NULL};
 }
+
+#endif
 
 #endif
