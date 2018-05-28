@@ -21,6 +21,64 @@ __global__ void bfs_frontier_kernel(MatrixCSR * matrix, int * visited, int * dis
     }
 }
 
+#ifdef AGGREGATION_WORK_EFFICIENT
+
+__global__ void set_nodes(int n, int * nodes) {
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if(i >= n) return;
+    nodes[i] = i;
+}
+
+std::pair<int *, MatrixCSR *> bfs(int n, MatrixCSR * matrix_gpu, int * max_distance) {
+    fprintf(stderr, "Normal BFS running\n");
+    int * visited;
+    cudaMalloc(&visited, sizeof(int) * n);
+
+    int * distance;
+    cudaMalloc(&distance, sizeof(int) * n);
+
+    int * frontier;
+    cudaMalloc(&frontier, sizeof(int) * n);
+
+    int * nodes;
+    cudaMalloc(&nodes, sizeof(int) * n);
+
+    set_nodes <<< (n + NUMBER_OF_THREADS - 1) / NUMBER_OF_THREADS, NUMBER_OF_THREADS >>> (n, nodes);
+
+    initialize_array(n, visited, false);
+    initialize_array(n, frontier, false);
+
+    assign<<<1,1>>> (&frontier[0], 1);
+    assign<<<1,1>>> (&distance[0], 0);
+
+    int * new_found;
+    cudaMallocManaged(&new_found, sizeof(int));
+    * max_distance = 0;
+    
+    while(true) {
+        * new_found = false;
+        bfs_frontier_kernel <<<(n + NUMBER_OF_THREADS - 1)/ NUMBER_OF_THREADS, NUMBER_OF_THREADS>>>(matrix_gpu, visited, distance, frontier, new_found);
+        cudaDeviceSynchronize();
+        if(*new_found)
+            * max_distance = * max_distance + 1;
+        else
+            break;
+    };
+    printf("Max distance : %d\n", * max_distance);
+    exit(0);
+    cudaFree(visited);
+    cudaFree(frontier);
+
+    thrust::sort(thrust::device, nodes, nodes + n, [distance] __device__ (int u, int v) {
+        return distance[u] < distance[v];
+    });
+
+    return {distance, NULL};
+
+}
+
+#else
+
 std::pair<int *, MatrixCSR *> bfs(int n, MatrixCSR * matrix_gpu, int * max_distance) {
     fprintf(stderr, "Normal BFS running\n");
     int * visited;
@@ -54,6 +112,8 @@ std::pair<int *, MatrixCSR *> bfs(int n, MatrixCSR * matrix_gpu, int * max_dista
     return {distance, NULL};
 
 }
+
+#endif
 
 __global__ void write_sizes (int total, int * offsets, int * vertices, MatrixCSR * matrix) {
     int i = blockDim.x * blockIdx.x + threadIdx.x;

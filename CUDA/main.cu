@@ -40,6 +40,10 @@ int main(int argc, char * argv[]) {
     cusparseHandle_t  cudasparse_handle;
     cusparseCreate(&cudasparse_handle);
 
+    printLines();
+    printConfig();
+    printLines();
+
 
     TicToc readtime("Read time total");
     readtime.tic();
@@ -88,8 +92,11 @@ int main(int argc, char * argv[]) {
 
     for(int pass = 1; pass <= npass; pass++) {
 
+        printLines();
+        printf("PASS %d\n", pass);
+
         #ifdef DEBUG
-            printf("PASS %d\n", pass);
+            printf("PASS %d\n\n", pass);
             printf("CSR CPU\n");
             printCSRCPU(deepCopyMatrixCSRGPUtoCPU(A_CSR));
         #endif
@@ -439,6 +446,7 @@ int main(int argc, char * argv[]) {
 
         A_CSR = newA_gpu;
     }
+    printLines();
 
     main_timer.toc();
 

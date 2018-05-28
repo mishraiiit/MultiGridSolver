@@ -135,7 +135,51 @@ __global__ void initialize_array_kernel(int n, T * arr, U value) {
 
 template<typename T, typename U>
 void initialize_array(int n, T * arr, U value) {
-    initialize_array_kernel <<< (n + 1024 - 1) / 1024, 1024 >>> (n, arr, value);
+    cudaMemset(arr, value, sizeof(T) * n);
+    // initialize_array_kernel <<< (n + 1024 - 1) / 1024, 1024 >>> (n, arr, value);
+}
+
+/*
+    Description : Print configuration of #directives.
+*/
+
+void printConfig() {
+    printf("Configuration : \n");
+
+    #ifdef BLELLOCH
+        printf("Prallel prefix sum using CUB : YES\n");
+    #else
+        printf("Prallel prefix sum using CUB : NO\n");
+    #endif
+
+    #ifdef BFS_WORK_EFFICIENT
+        printf("Work efficient Merill's BFS  : YES\n");
+    #else
+        printf("Work efficient Merill's BFS  : NO\n");
+    #endif
+
+    #ifdef AGGREGATION_WORK_EFFICIENT
+        printf("Aggregation work efficient   : YES\n");
+    #else
+        printf("Aggregation work efficient   : NO\n");
+    #endif
+
+    #ifdef Debug
+        printf("Debug Mode On                : YES\n");
+    #else
+        printf("Debug Mode On                : NO\n");
+    #endif
+
+}
+
+/*
+    Description : Print newlines for seperating stuff.
+*/
+
+void printLines() {
+    printf("\n");
+    printf("---------------------------------------------------------------------------\n");
+    printf("\n");
 }
 
 #endif
