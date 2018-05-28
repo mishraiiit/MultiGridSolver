@@ -1,16 +1,7 @@
 #ifndef PREFIX_SUM_GPU
 #define PREFIX_SUM_GPU
-#include "scan.cu"
-
-__global__ void copyToInput(int * out, int * in, int n) {
-    int i = blockIdx.x * blockDim.x + threadIdx.x;
-    if(i >= n) return;
-    if(i == n - 1) {
-        in[i] += out[i];
-    } else {
-        in[i] = out[i + 1];
-    }
-}
+#include <cub/util_allocator.cuh>
+#include <cub/device/device_scan.cuh>
 
 __global__ void prefixSumGPUSingleThreadKernel(int * in, int n) {
     for(int i = 1; i < n; i++) {
@@ -20,6 +11,14 @@ __global__ void prefixSumGPUSingleThreadKernel(int * in, int n) {
 
 void prefixSumGPUSingleThread(int * in, int n) {
     prefixSumGPUSingleThreadKernel <<<1,1>>> (in, n);
+}
+
+void prefixSumGPUCUB(int * in, int n) {
+    void *d_temp_storage = NULL;
+    size_t   temp_storage_bytes = 0;
+    cub::DeviceScan::InclusiveSum(d_temp_storage, temp_storage_bytes, in, in, n);
+    cudaMalloc(&d_temp_storage, temp_storage_bytes);
+    cub::DeviceScan::InclusiveSum(d_temp_storage, temp_storage_bytes, in, in, n);
 }
 
 void prefixSumGPUCPUTransfer(int * in, int n) {
@@ -34,11 +33,7 @@ void prefixSumGPUCPUTransfer(int * in, int n) {
 
 void prefixSumGPU(int * in, int n) {
     #ifdef BLELLOCH
-        int * out;
-        cudaMalloc(&out, sizeof(int) * n);
-        sum_scan_blelloch(out, in, n);
-        copyToInput <<< (n + NUMBER_OF_THREADS - 1) / NUMBER_OF_THREADS, NUMBER_OF_THREADS >>> (out, in, n);
-        cudaFree(out);
+        prefixSumGPUCUB(in, n);
     #else
         prefixSumGPUSingleThread(in, n);
     #endif
