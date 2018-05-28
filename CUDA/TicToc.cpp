@@ -16,7 +16,8 @@ class TicToc {
     public:
         std::chrono::time_point<std::chrono::system_clock> start, end;
         std::string s;
-        TicToc(std::string s) : s(s) {
+        int level;
+        TicToc(std::string s, int level) : s(s), level(level) {
 
         }
         void tic() {
@@ -26,7 +27,13 @@ class TicToc {
         void toc() {
             end = std::chrono::system_clock::now();
             std::chrono::duration<float> diff = end-start;
-            fprintf(stderr, "%s %lf\n", s.c_str(), diff.count());            
+            s = "\033[1;34m[time] \033[0m"+ s;
+            for(int i = 0; i < level; i++) {
+                fprintf(stderr, " ");            
+            }
+            while(s.size() != 40)
+                s = s + ' ';
+            fprintf(stderr, "%s : %lf\n", s.c_str(), diff.count());            
         }
 };
 

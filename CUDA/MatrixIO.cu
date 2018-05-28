@@ -80,6 +80,36 @@ struct MatrixCSC {
 
 
 /*
+    Description : Print newlines for seperating stuff.
+*/
+
+void printLines() {
+    fprintf(stderr, "\n");
+    fprintf(stderr, "---------------------------------------------------------------------------\n");
+    fprintf(stderr, "\n");
+}
+
+void printInfo(const char * s, int level) {
+    std::string to_print = "";
+
+    to_print = "\033[1;32m[info]\033[0m";
+    for(int i = 0; i < level; i++) {
+        to_print = ' ' + to_print;
+    }
+    fprintf(stderr, "%s %s\n", to_print.c_str(), s);
+}
+
+void printInfo(std::string s, int level) {
+    std::string to_print = "";
+
+    to_print = "\033[1;32m[info]\033[0m";
+    for(int i = 0; i < level; i++) {
+        to_print = ' ' + to_print;
+    }
+    fprintf(stderr, "%s %s\n", to_print.c_str(), s.c_str());
+}
+
+/*
     Description : It reads the matrix in the file to Unified Memory 
     in COO format.
 
@@ -87,7 +117,7 @@ struct MatrixCSC {
         string filename : Path to file.
 
     Comments : File should be in .mtx format.
-    
+
     @author : mishraiiit
 */
 
@@ -134,11 +164,11 @@ MatrixCOO * readMatrixUnifiedMemoryCOO(std::string filename) {
 
     assert(filled == L);
     fin.close();
-    std::cerr << "Read matrix from file: " << filename << std::endl;
+    printInfo("Read matrix from file: " + filename, 4);
 
     auto end = std::chrono::system_clock::now();
     std::chrono::duration<float> diff = end-start;
-    std::cerr << "Time for reading: " << diff.count() << " s\n";
+
 
     return matrix_coo;
 }
@@ -152,7 +182,7 @@ MatrixCOO * readMatrixUnifiedMemoryCOO(std::string filename) {
         string filename : Path to file.
 
     Comments : File should be in .mtx format.
-    
+
     @author : mishraiiit
 */
 
@@ -175,7 +205,7 @@ MatrixCOO * readMatrixCPUMemoryCOO(std::string filename) {
     matrix_coo->i = (int *) malloc(sizeof(int) * L);
     matrix_coo->j = (int *) malloc(sizeof(int) * L);
     matrix_coo->val = (float *) malloc(sizeof(float) * L);
-    
+
     int filled = 0;
 
     auto start = std::chrono::system_clock::now();
@@ -199,11 +229,11 @@ MatrixCOO * readMatrixCPUMemoryCOO(std::string filename) {
 
     assert(filled == L);
     fin.close();
-    std::cerr << "Read matrix from file: " << filename << std::endl;
+    printInfo("Read matrix from file: " + filename, 4);
 
     auto end = std::chrono::system_clock::now();
     std::chrono::duration<float> diff = end-start;
-    std::cerr << "Time for reading: " << diff.count() << " s\n";
+
 
     return matrix_coo;
 }
@@ -217,7 +247,7 @@ MatrixCOO * readMatrixCPUMemoryCOO(std::string filename) {
         string filename : Path to file.
 
     Comments : File should be in .mtx format.
-    
+
     @author : mishraiiit
 */
 
@@ -267,7 +297,7 @@ MatrixCOO * readMatrixGPUMemoryCOO(std::string filename) {
         string filename : Path to file.
 
     Comments : File should be in .mtx format.
-    
+
     @author : mishraiiit
 */
 
@@ -302,7 +332,7 @@ MatrixCSR * readMatrixUnifiedMemoryCSR(std::string filename) {
         fin >> m >> n >> data;
         matrix_data[m - 1].push_back({n - 1, data});
     }
-    
+
     for(int i = 0; i < M; i++) {
         std::sort(matrix_data[i].begin(), matrix_data[i].end());
         matrix_csr->i[i] = filled;
@@ -317,11 +347,10 @@ MatrixCSR * readMatrixUnifiedMemoryCSR(std::string filename) {
 
     assert(filled == L);
     fin.close();
-    std::cerr << "Read matrix from file: " << filename << std::endl;
+    printInfo("Read matrix from file: " + filename, 4);
 
     auto end = std::chrono::system_clock::now();
     std::chrono::duration<float> diff = end-start;
-    std::cerr << "Time for reading: " << diff.count() << " s\n";
 
     return matrix_csr;
 }
@@ -334,7 +363,7 @@ MatrixCSR * readMatrixUnifiedMemoryCSR(std::string filename) {
         string filename : Path to file.
 
     Comments : File should be in .mtx format.
-    
+
     @author : mishraiiit
 */
 
@@ -349,7 +378,7 @@ MatrixCSR * readMatrixCPUMemoryCSR(std::string filename) {
 
     MatrixCSR * matrix_csr;
     matrix_csr = (MatrixCSR *) malloc(sizeof(MatrixCSR));
-    
+
     matrix_csr->rows = M;
     matrix_csr->cols = N;
     matrix_csr->nnz = L;
@@ -369,7 +398,7 @@ MatrixCSR * readMatrixCPUMemoryCSR(std::string filename) {
         fin >> m >> n >> data;
         matrix_data[m - 1].push_back({n - 1, data});
     }
-    
+
     for(int i = 0; i < M; i++) {
         std::sort(matrix_data[i].begin(), matrix_data[i].end());
         matrix_csr->i[i] = filled;
@@ -384,11 +413,11 @@ MatrixCSR * readMatrixCPUMemoryCSR(std::string filename) {
 
     assert(filled == L);
     fin.close();
-    std::cerr << "Read matrix from file: " << filename << std::endl;
+    printInfo("Read matrix from file: " + filename, 4);
 
     auto end = std::chrono::system_clock::now();
     std::chrono::duration<float> diff = end-start;
-    std::cerr << "Time for reading: " << diff.count() << " s\n";
+
 
     return matrix_csr;
 }
@@ -402,7 +431,7 @@ MatrixCSR * readMatrixCPUMemoryCSR(std::string filename) {
         string filename : Path to file.
 
     Comments : File should be in .mtx format.
-    
+
     @author : mishraiiit
 */
 
@@ -452,7 +481,7 @@ MatrixCSR * readMatrixGPUMemoryCSR(std::string filename) {
         string filename : Path to file.
 
     Comments : File should be in .mtx format.
-    
+
     @author : mishraiiit
 */
 
@@ -467,7 +496,7 @@ MatrixCSC * readMatrixUnifiedMemoryCSC(std::string filename) {
 
     MatrixCSC * matrix_csc;
     cudaMallocManaged(&matrix_csc, sizeof(MatrixCSC));
-    
+
     matrix_csc->rows = M;
     matrix_csc->cols = N;
     matrix_csc->nnz = L;
@@ -487,7 +516,7 @@ MatrixCSC * readMatrixUnifiedMemoryCSC(std::string filename) {
         fin >> m >> n >> data;
         matrix_data[n - 1].push_back({m - 1, data});
     }
-    
+
     for(int i = 0; i < N; i++) {
         std::sort(matrix_data[i].begin(), matrix_data[i].end());
         matrix_csc->j[i] = filled;
@@ -502,11 +531,11 @@ MatrixCSC * readMatrixUnifiedMemoryCSC(std::string filename) {
 
     assert(filled == L);
     fin.close();
-    std::cerr << "Read matrix from file: " << filename << std::endl;
+    printInfo("Read matrix from file: " + filename, 4);
 
     auto end = std::chrono::system_clock::now();
     std::chrono::duration<float> diff = end-start;
-    std::cerr << "Time for reading: " << diff.count() << " s\n";
+
 
     return matrix_csc;
 }
@@ -520,7 +549,7 @@ MatrixCSC * readMatrixUnifiedMemoryCSC(std::string filename) {
         string filename : Path to file.
 
     Comments : File should be in .mtx format.
-    
+
     @author : mishraiiit
 */
 
@@ -535,7 +564,7 @@ MatrixCSC * readMatrixCPUMemoryCSC(std::string filename) {
 
     MatrixCSC * matrix_csc;
     matrix_csc = (MatrixCSC *) malloc(sizeof(MatrixCSC));
-    
+
     matrix_csc->rows = M;
     matrix_csc->cols = N;
     matrix_csc->nnz = L;
@@ -555,7 +584,7 @@ MatrixCSC * readMatrixCPUMemoryCSC(std::string filename) {
         fin >> m >> n >> data;
         matrix_data[n - 1].push_back({m - 1, data});
     }
-    
+
     for(int i = 0; i < N; i++) {
         std::sort(matrix_data[i].begin(), matrix_data[i].end());
         matrix_csc->j[i] = filled;
@@ -570,11 +599,11 @@ MatrixCSC * readMatrixCPUMemoryCSC(std::string filename) {
 
     assert(filled == L);
     fin.close();
-    std::cerr << "Read matrix from file: " << filename << std::endl;
+    printInfo("Read matrix from file: " + filename, 4);
 
     auto end = std::chrono::system_clock::now();
     std::chrono::duration<float> diff = end-start;
-    std::cerr << "Time for reading: " << diff.count() << " s\n";
+
 
     return matrix_csc;
 }
@@ -588,7 +617,7 @@ MatrixCSC * readMatrixCPUMemoryCSC(std::string filename) {
         string filename : Path to file.
 
     Comments : File should be in .mtx format.
-    
+
     @author : mishraiiit
 */
 
@@ -637,7 +666,7 @@ MatrixCSC * readMatrixGPUMemoryCSC(std::string filename) {
         MatrixCSR * matrix : Matrix to write.
 
     Comments : File should be in .mtx format.
-    
+
     @author : mishraiiit
 */
 
@@ -659,5 +688,47 @@ void writeMatrixCSRCPU(std::string filename, MatrixCSR * matrix) {
     fout.close();
 }
 
+
+/*
+    Description : Print configuration of #directives.
+*/
+
+void printConfig() {
+    printInfo("Configuration", 4);
+
+    #ifdef BLELLOCH
+        printInfo("Prallel prefix sum using CUB : YES", 8);
+    #else
+        printInfo("Prallel prefix sum using CUB : NO", 8);
+    #endif
+
+    #ifdef BFS_WORK_EFFICIENT
+        printInfo("Work efficient Merill's BFS  : YES", 8);
+    #else
+        printInfo("Work efficient Merill's BFS  : NO", 8);
+    #endif
+
+    #ifdef AGGREGATION_WORK_EFFICIENT
+        printInfo("Aggregation work efficient   : YES", 8);
+    #else
+        printInfo("Aggregation work efficient   : NO", 8);
+    #endif
+
+    #ifdef DEBUG
+        printInfo("Debug Mode On                : YES", 8);
+    #else
+        printInfo("Debug Mode On                : NO", 8);
+    #endif
+
+}
+
+std::string itoa(int number) {
+    std::string ret;
+    while(number != 0) {
+        ret = ((char)('0' + (number % 10))) + ret;
+        number = number / 10;
+    }
+    return ret;
+}
 
 #endif

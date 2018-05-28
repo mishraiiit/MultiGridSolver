@@ -1,6 +1,6 @@
 #define BLELLOCH
-#define BFS_WORK_EFFICIENT
-// #define AGGREGATION_WORK_EFFICIENT
+// #define BFS_WORK_EFFICIENT
+#define AGGREGATION_WORK_EFFICIENT
 #define NUMBER_OF_THREADS 1024
 // #define DEBUG
 // #define THRUST_SORT
@@ -15,6 +15,7 @@
 #include "PrefixSum.cu"
 #include <cusparse.h>
 #include <string>
+#include <stdlib.h>
 
 int main(int argc, char * argv[]) {
 
@@ -22,6 +23,8 @@ int main(int argc, char * argv[]) {
     double ktg;
     int npass;
     double tou;
+
+    int indent = 4;
   
     if(argc != 5) {
         printf("Invalid arguments.\n");
@@ -45,7 +48,7 @@ int main(int argc, char * argv[]) {
     printLines();
 
 
-    TicToc readtime("Read time total");
+    TicToc readtime("Read time total", indent);
     readtime.tic();
 
     MatrixCSR * P_cumm = NULL; // output will be in this.
@@ -58,7 +61,7 @@ int main(int argc, char * argv[]) {
 
     int nnz_initial = A_CSRCPU->nnz;
 
-    TicToc cudaalloctime("cudaalloctime");
+    TicToc cudaalloctime("cudaalloctime", indent);
     cudaalloctime.tic();
 
     float * Si;
@@ -87,13 +90,19 @@ int main(int argc, char * argv[]) {
 
     cudaalloctime.toc();
 
-    TicToc main_timer("Main timer");
+    TicToc main_timer("Main timer", indent);
     main_timer.tic();
 
+    indent += 4;
     for(int pass = 1; pass <= npass; pass++) {
 
+        A_CSRCPU = shallowCopyMatrixCSRGPUtoCPU(A_CSR);
+
+        int nnz_now = A_CSRCPU->nnz;
+        if(nnz_now <= nnz_initial / tou) break;
+
         printLines();
-        printf("PASS %d\n", pass);
+        printInfo(("PASS " + itoa(pass)).c_str(), indent - 4);
 
         #ifdef DEBUG
             printf("PASS %d\n\n", pass);
@@ -101,15 +110,10 @@ int main(int argc, char * argv[]) {
             printCSRCPU(deepCopyMatrixCSRGPUtoCPU(A_CSR));
         #endif
 
-        A_CSRCPU = shallowCopyMatrixCSRGPUtoCPU(A_CSR);
-
-        int nnz_now = A_CSRCPU->nnz;
-        if(nnz_now <= nnz_initial / tou) break;
-
         auto neighbour_list = deepCopyMatrixCSRGPUtoGPU(A_CSR);
         auto A_CSC = convertCSRGPU_cudaSparse(A_CSR, cudasparse_handle);
         
-        TicToc rowcolsum("Row Col abs sum");
+        TicToc rowcolsum("Row Col abs sum", indent);
         rowcolsum.tic();
         int number_of_blocks = (A_CSRCPU->rows + NUMBER_OF_THREADS - 1) / NUMBER_OF_THREADS;
         int number_of_threads = NUMBER_OF_THREADS;
@@ -129,7 +133,7 @@ int main(int argc, char * argv[]) {
         #endif
         rowcolsum.toc();
 
-        TicToc sicomputation("Si computation");
+        TicToc sicomputation("Si computation", indent);
         sicomputation.tic();
         comptueSi<<<number_of_blocks, number_of_threads>>> (A_CSR, A_CSC, Si);
         // debugmuij<<<1,1>>> (A_CSR, Si);
@@ -147,7 +151,7 @@ int main(int argc, char * argv[]) {
         #endif
         sicomputation.toc();
 
-        TicToc bfstime("BFS time...");
+        TicToc bfstime("BFS time...", indent);
         bfstime.tic();
         int max_distance;
 
@@ -172,9 +176,18 @@ int main(int argc, char * argv[]) {
             free(temp_bfs);
         #endif
 
-        #ifdef DEBUG
+        #ifdef defined(DEBUG) && defined(AGGREGATION_WORK_EFFICIENT)
+            printf("PASS %d\n", pass);
+            printf("Row ptr distance CSR matrix\n");
+            for(int row = 0; row < distance_csr->rows + 1; row++) {
+                printf("%d %d\n", row, distance_csr->i[row]);
+            }
+        #endif
+
+        #ifdef defined(DEBUG) && defined(AGGREGATION_WORK_EFFICIENT)
             printf("PASS %d\n", pass);
             printf("Level distance CSR\n");
+            printf("Rows : %d, Cols : %d, Nnz : %d\n", distance_csr->rows, distance_csr->cols, distance_csr->nnz);
             for(int row = 0; row < distance_csr->rows; row++) {
                 printf("Distance %d : ", row);
                 for(int ptr = distance_csr->i[row]; ptr < distance_csr->i[row + 1]; ptr++) {
@@ -187,7 +200,7 @@ int main(int argc, char * argv[]) {
         cudaDeviceSynchronize();
         bfstime.toc();
 
-        TicToc sortcomputation("Sort computation");
+        TicToc sortcomputation("Sort computation", indent);
         sortcomputation.tic();
         sortNeighbourList<<<number_of_blocks, number_of_threads>>>
         (A_CSR, neighbour_list, Si, allowed, ktg, ising0);
@@ -200,7 +213,7 @@ int main(int argc, char * argv[]) {
         #endif
         sortcomputation.toc();
 
-        TicToc aggregationtime("Aggregation time");
+        TicToc aggregationtime("Aggregation time", indent);
         aggregationtime.tic();
 
         initialize_array(A_CSRCPU->rows,  paired_with, -1);
@@ -245,7 +258,7 @@ int main(int argc, char * argv[]) {
 
         aggregationtime.toc();
 
-        TicToc get_usefule_pairs_time("Get useful_pairs time");
+        TicToc get_usefule_pairs_time("Get useful_pairs time", indent);
         get_usefule_pairs_time.tic();
         get_useful_pairs<<<number_of_blocks, number_of_threads>>>
         (A_CSRCPU->rows, paired_with, useful_pairs);
@@ -264,7 +277,7 @@ int main(int argc, char * argv[]) {
         get_usefule_pairs_time.toc();
 
 
-        TicToc prefix_sum("Sum kernel");
+        TicToc prefix_sum("Sum kernel", indent);
         prefix_sum.tic();
         prefixSumGPU(useful_pairs, A_CSRCPU->rows);
         #ifdef DEBUG
@@ -283,7 +296,7 @@ int main(int argc, char * argv[]) {
         cudaDeviceSynchronize();
         prefix_sum.toc();
 
-        TicToc P_matrix_creation_time("Time to P matrix");
+        TicToc P_matrix_creation_time("Time to P matrix", indent);
         P_matrix_creation_time.tic();
 
         int nc;
@@ -423,7 +436,7 @@ int main(int argc, char * argv[]) {
         cudaDeviceSynchronize();
         P_matrix_creation_time.toc();
 
-        TicToc time_transpose("Time taken csr2csc");
+        TicToc time_transpose("Time taken csr2csc", indent);
         time_transpose.tic();
 
         MatrixCSR * P_gpu = transposeCSRGPU_cudaSparse(P_transpose_gpu, cudasparse_handle);
@@ -443,6 +456,8 @@ int main(int argc, char * argv[]) {
         freeMatrixCSRGPU(P_transpose_gpu);
         freeMatrixCSRGPU(A_CSR);
         freeMatrixCSCGPU(A_CSC);
+
+        printInfo(("Matrix size reduced to : " + itoa(nc)).c_str(), indent);
 
         A_CSR = newA_gpu;
     }

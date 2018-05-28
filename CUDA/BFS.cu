@@ -10,10 +10,10 @@ __global__ void bfs_frontier_kernel(MatrixCSR * matrix, int * visited, int * dis
     if(frontier[i]) {
         visited[i] = true;
         frontier[i] = false;
-        * new_found = 1;
         for(int j = matrix->i[i]; j < matrix->i[i + 1]; j++) {
             int nj = matrix->j[j];
             if(!visited[nj]) {
+                * new_found = 1;
                 frontier[nj] = true;
                 distance[nj] = distance[i] + 1;
             }
@@ -29,8 +29,22 @@ __global__ void set_nodes(int n, int * nodes) {
     nodes[i] = i;
 }
 
+__global__ void compute_offsets(int n, int * row_ptr, int * col_val, int * distance) {
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if(i >= n) return;
+    else if(i == 0) {
+        row_ptr[0] = 0;
+    } else {
+        int prev = distance[col_val[i - 1]];
+        int curr = distance[col_val[i]];
+        if(curr != prev) {
+            row_ptr[curr] = i;
+        }
+    }
+}
+
 std::pair<int *, MatrixCSR *> bfs(int n, MatrixCSR * matrix_gpu, int * max_distance) {
-    fprintf(stderr, "Normal BFS running\n");
+    printInfo("Normal BFS running", 8);
     int * visited;
     cudaMalloc(&visited, sizeof(int) * n);
 
@@ -41,7 +55,7 @@ std::pair<int *, MatrixCSR *> bfs(int n, MatrixCSR * matrix_gpu, int * max_dista
     cudaMalloc(&frontier, sizeof(int) * n);
 
     int * nodes;
-    cudaMalloc(&nodes, sizeof(int) * n);
+    cudaMallocManaged(&nodes, sizeof(int) * n);
 
     set_nodes <<< (n + NUMBER_OF_THREADS - 1) / NUMBER_OF_THREADS, NUMBER_OF_THREADS >>> (n, nodes);
 
@@ -54,8 +68,25 @@ std::pair<int *, MatrixCSR *> bfs(int n, MatrixCSR * matrix_gpu, int * max_dista
     int * new_found;
     cudaMallocManaged(&new_found, sizeof(int));
     * max_distance = 0;
-    
+
     while(true) {
+
+        #ifdef DEBUG
+            {
+                printf("\nfrontier data:  \n");
+                printf("Level :  %d\n", * max_distance);
+                int * temp = (int *) malloc(sizeof(int) * n);
+                cudaMemcpy(temp, frontier, sizeof(int) * n, cudaMemcpyDeviceToHost);
+                for(int i = 0; i < n; i++) {
+                    if(temp[i]) {
+                        printf("%d ", i);
+                    }
+                }
+                printf("\n");
+                free(temp);
+            }
+        #endif
+
         * new_found = false;
         bfs_frontier_kernel <<<(n + NUMBER_OF_THREADS - 1)/ NUMBER_OF_THREADS, NUMBER_OF_THREADS>>>(matrix_gpu, visited, distance, frontier, new_found);
         cudaDeviceSynchronize();
@@ -64,8 +95,7 @@ std::pair<int *, MatrixCSR *> bfs(int n, MatrixCSR * matrix_gpu, int * max_dista
         else
             break;
     };
-    printf("Max distance : %d\n", * max_distance);
-    exit(0);
+
     cudaFree(visited);
     cudaFree(frontier);
 
@@ -73,7 +103,18 @@ std::pair<int *, MatrixCSR *> bfs(int n, MatrixCSR * matrix_gpu, int * max_dista
         return distance[u] < distance[v];
     });
 
-    return {distance, NULL};
+    MatrixCSR * toReturn = NULL;
+    cudaMallocManaged(&toReturn, sizeof(MatrixCSR));
+    cudaMallocManaged(&toReturn->i, sizeof(int) * ((*max_distance) + 2));
+    toReturn->rows = *max_distance + 1;
+    toReturn->cols = n;
+    toReturn->nnz = n;
+    toReturn->j = nodes;
+    toReturn->i[(*max_distance) + 1] = n;
+
+    compute_offsets <<< (n + NUMBER_OF_THREADS - 1) / NUMBER_OF_THREADS, NUMBER_OF_THREADS >>> (n, toReturn->i, toReturn->j, distance);
+
+    return {distance, toReturn};
 
 }
 
@@ -188,7 +229,7 @@ __global__ void write_vertex_fronteir (int edge_fronteir_size, int * vertex_fron
 #ifdef AGGREGATION_WORK_EFFICIENT
 
 std::pair<int *, MatrixCSR *> bfs_work_efficient(int n, MatrixCSR * matrix_gpu, int * max_distance) {
-    fprintf(stderr, "Work efficient BFS running\n");
+    printInfo("Work efficient BFS running", 8);
     int * vertex_fronteir;
     cudaMalloc(&vertex_fronteir, sizeof(int) * n);
 
@@ -219,8 +260,8 @@ std::pair<int *, MatrixCSR *> bfs_work_efficient(int n, MatrixCSR * matrix_gpu, 
     MatrixCSR * toReturn = NULL;
     #ifdef AGGREGATION_WORK_EFFICIENT
         cudaMallocManaged(&toReturn, sizeof(MatrixCSR));
-        cudaMallocManaged(&toReturn->i, sizeof(int) * n);
-        cudaMallocManaged(&toReturn->j, sizeof(int) * (n + 1));
+        cudaMallocManaged(&toReturn->i, sizeof(int) * (n + 1));
+        cudaMallocManaged(&toReturn->j, sizeof(int) * n);
         toReturn->nnz = n;
         int offset = 1;
         toReturn->j[0] = 0;
