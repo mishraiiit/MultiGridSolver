@@ -89,6 +89,7 @@ if ( issparse(A) )
         break;
       end
     end
+    issymm = 0;
     if ( issymm )
       symm = 'symmetric';
       ATEMP = tril(A);

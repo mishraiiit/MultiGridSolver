@@ -121,7 +121,7 @@ std::pair<int *, MatrixCSR *> bfs(int n, MatrixCSR * matrix_gpu, int * max_dista
 #else
 
 std::pair<int *, MatrixCSR *> bfs(int n, MatrixCSR * matrix_gpu, int * max_distance) {
-    fprintf(stderr, "Normal BFS running\n");
+    printInfo("Normal BFS running", 8);
     int * visited;
     cudaMalloc(&visited, sizeof(int) * n);
 
