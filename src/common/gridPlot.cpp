@@ -55,7 +55,7 @@ int main(int argc, char ** argv) {
   }
 
   string matrixname = argv[1];
-  SMatrix T = readMatrix(string("../matrices/") + matrixname + string("promatrix.mtx"));
+  SMatrix T = readMatrix(string("../../matrices/") + matrixname + string("promatrix.mtx"));
 
   int elements = T.rows();
   int clusters = T.cols();
@@ -101,6 +101,6 @@ int main(int argc, char ** argv) {
   for(auto p : points) {
     result.insert(p.first.first, p.first.second) = p.second;
   }
-  writeMatrix(string("../matrices/") + matrixname + string("grid.mtx"), result);
+  writeMatrix(string("../../matrices/") + matrixname + string("grid.mtx"), result);
   return 0;
 }

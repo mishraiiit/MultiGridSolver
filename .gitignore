@@ -1,6 +1,4 @@
-src/main
-src/tests/DenseMatrixTest
-src/tests/DenseVectorTest
-src/tests/SparseVectorTest
-src/tests/SparseMatrixTest
-src/tests/UtilityTest
+src/common/gridPlot
+src/common/poisson
+src/common/CPU_C++/main
+src/GPU_CUDAC++/main

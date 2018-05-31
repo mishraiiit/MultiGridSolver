@@ -4,4 +4,4 @@ grid='grid'
 ../common/gridPlot $1
 gridfile=$1$grid
 echo $gridfile
-python ../plotMatrix.py $gridfile
+python ../common/plotMatrix.py $gridfile
