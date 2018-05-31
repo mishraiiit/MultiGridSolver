@@ -19,6 +19,7 @@ void prefixSumGPUCUB(int * in, int n) {
     cub::DeviceScan::InclusiveSum(d_temp_storage, temp_storage_bytes, in, in, n);
     cudaMalloc(&d_temp_storage, temp_storage_bytes);
     cub::DeviceScan::InclusiveSum(d_temp_storage, temp_storage_bytes, in, in, n);
+    cudaFree(d_temp_storage);
 }
 
 void prefixSumGPUCPUTransfer(int * in, int n) {

@@ -1,6 +1,6 @@
 #define BLELLOCH
-//#define BFS_WORK_EFFICIENT
-// #define AGGREGATION_WORK_EFFICIENT
+#define BFS_WORK_EFFICIENT
+#define AGGREGATION_WORK_EFFICIENT
 #define NUMBER_OF_THREADS 1024
 // #define DEBUG
 // #define THRUST_SORT
@@ -447,8 +447,11 @@ int main(int argc, char * argv[]) {
 
         if(P_cumm == NULL)
             P_cumm = deepCopyMatrixCSRGPUtoGPU(P_gpu);
-        else
-            P_cumm = spmatrixmult_cudaSparse(P_cumm, P_gpu, cudasparse_handle);
+        else {
+            MatrixCSR * new_P_cumm = spmatrixmult_cudaSparse(P_cumm, P_gpu, cudasparse_handle);
+            cudaFree(P_cumm);
+            P_cumm = new_P_cumm;
+        }
 
         
         cudaFree(bfs_distance);

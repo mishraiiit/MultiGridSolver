@@ -79,6 +79,15 @@ struct MatrixCSC {
 };
 
 
+std::string itoa(int number) {
+    std::string ret;
+    while(number != 0) {
+        ret = ((char)('0' + (number % 10))) + ret;
+        number = number / 10;
+    }
+    return ret;
+}
+
 /*
     Description : Print newlines for seperating stuff.
 */
@@ -165,6 +174,7 @@ MatrixCOO * readMatrixUnifiedMemoryCOO(std::string filename) {
     assert(filled == L);
     fin.close();
     printInfo("Read matrix from file: " + filename, 4);
+    printInfo("Matrix size : " + itoa(M) + " x " + itoa(N) + ".", 4);
 
     auto end = std::chrono::system_clock::now();
     std::chrono::duration<float> diff = end-start;
@@ -230,6 +240,7 @@ MatrixCOO * readMatrixCPUMemoryCOO(std::string filename) {
     assert(filled == L);
     fin.close();
     printInfo("Read matrix from file: " + filename, 4);
+    printInfo("Matrix size : " + itoa(M) + " x " + itoa(N) + ".", 4);
 
     auto end = std::chrono::system_clock::now();
     std::chrono::duration<float> diff = end-start;
@@ -348,6 +359,7 @@ MatrixCSR * readMatrixUnifiedMemoryCSR(std::string filename) {
     assert(filled == L);
     fin.close();
     printInfo("Read matrix from file: " + filename, 4);
+    printInfo("Matrix size : " + itoa(M) + " x " + itoa(N) + ".", 4);
 
     auto end = std::chrono::system_clock::now();
     std::chrono::duration<float> diff = end-start;
@@ -414,6 +426,7 @@ MatrixCSR * readMatrixCPUMemoryCSR(std::string filename) {
     assert(filled == L);
     fin.close();
     printInfo("Read matrix from file: " + filename, 4);
+    printInfo("Matrix size : " + itoa(M) + " x " + itoa(N) + ".", 4);
 
     auto end = std::chrono::system_clock::now();
     std::chrono::duration<float> diff = end-start;
@@ -532,6 +545,7 @@ MatrixCSC * readMatrixUnifiedMemoryCSC(std::string filename) {
     assert(filled == L);
     fin.close();
     printInfo("Read matrix from file: " + filename, 4);
+    printInfo("Matrix size : " + itoa(M) + " x " + itoa(N) + ".", 4);
 
     auto end = std::chrono::system_clock::now();
     std::chrono::duration<float> diff = end-start;
@@ -600,6 +614,7 @@ MatrixCSC * readMatrixCPUMemoryCSC(std::string filename) {
     assert(filled == L);
     fin.close();
     printInfo("Read matrix from file: " + filename, 4);
+    printInfo("Matrix size : " + itoa(M) + " x " + itoa(N) + ".", 4);
 
     auto end = std::chrono::system_clock::now();
     std::chrono::duration<float> diff = end-start;
@@ -720,15 +735,6 @@ void printConfig() {
         printInfo("Debug Mode On                : NO", 8);
     #endif
 
-}
-
-std::string itoa(int number) {
-    std::string ret;
-    while(number != 0) {
-        ret = ((char)('0' + (number % 10))) + ret;
-        number = number / 10;
-    }
-    return ret;
 }
 
 #endif

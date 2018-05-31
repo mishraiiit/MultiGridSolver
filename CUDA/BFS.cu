@@ -7,18 +7,21 @@
 __global__ void bfs_frontier_kernel(MatrixCSR * matrix, int * visited, int * distance, int * frontier, int * new_found) {
     int i = blockDim.x * blockIdx.x + threadIdx.x;
     if(i >= matrix->rows) return;
+    int new_found_local = 0;
     if(frontier[i]) {
         visited[i] = true;
         frontier[i] = false;
         for(int j = matrix->i[i]; j < matrix->i[i + 1]; j++) {
             int nj = matrix->j[j];
             if(!visited[nj]) {
-                * new_found = 1;
+		new_found_local = 1;
                 frontier[nj] = true;
                 distance[nj] = distance[i] + 1;
             }
         }
     }
+    if(new_found_local == 1)
+    * new_found = new_found_local;
 }
 
 #ifdef AGGREGATION_WORK_EFFICIENT
