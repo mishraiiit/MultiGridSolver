@@ -1,6 +1,6 @@
 #define BLELLOCH
-#define BFS_WORK_EFFICIENT
-#define AGGREGATION_WORK_EFFICIENT
+// #define BFS_WORK_EFFICIENT
+// #define AGGREGATION_WORK_EFFICIENT
 #define NUMBER_OF_THREADS 1024
 // #define DEBUG
 // #define THRUST_SORT
@@ -52,7 +52,7 @@ int main(int argc, char * argv[]) {
     readtime.tic();
 
     MatrixCSR * P_cumm = NULL; // output will be in this.
-    std::string filename = "../matrices/" + matrixname + ".mtx";
+    std::string filename = "../../matrices/" + matrixname + ".mtx";
 
     auto A_CSRCPU = readMatrixCPUMemoryCSR(filename);
     auto A_CSR = deepCopyMatrixCSRCPUtoGPU(A_CSRCPU);
@@ -477,7 +477,7 @@ int main(int argc, char * argv[]) {
     assert(cudaFree(aggregation_count) == cudaSuccess);
 
 
-    writeMatrixCSRCPU(std::string("../matrices/") + matrixname + \
+    writeMatrixCSRCPU(std::string("../../matrices/") + matrixname + \
         std::string("promatrix.mtx"), deepCopyMatrixCSRGPUtoCPU(P_cumm));
  
     freeMatrixCSRGPU(A_CSR);
