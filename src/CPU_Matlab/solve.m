@@ -6,7 +6,7 @@ function [] = solve(filename, ktg, npass, tou)
 %npass = 2
 %tou = 4
 
-A = mmread(strcat('../matrices/', filename, '.mtx'));
+A = mmread(strcat('../../matrices/', filename, '.mtx'));
 
 %size(A)
 %nrows = size(A, 1);
@@ -14,10 +14,10 @@ A = mmread(strcat('../matrices/', filename, '.mtx'));
 
 %P = mmread('../matrices/poisson10000promatrix.mtx');
 tic
-[P, ind] = agtwolev(A, 2, 0, npass, ktg, -0.5, tou);
+[P, ind] = agtwolev(A, 2, 1, npass, ktg, -0.5, tou);
 toc
 size(P)
-mmwrite(strcat('../matrices/', filename, 'promatrix.mtx'), P);
+mmwrite(strcat('../../matrices/', filename, 'promatrix.mtx'), P);
 
 %Ac = P' * A * P;
 %setup.type = 'nofill';
