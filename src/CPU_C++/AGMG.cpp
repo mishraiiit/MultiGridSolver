@@ -279,7 +279,7 @@ namespace AGMG {
     }
 
     const SMatrix multiple_pairwise_aggregation 
-    (const SMatrix & A, double ktg, int npass , double tou) {
+    (const SMatrix & A, double ktg, int npass , double tou, int max_restriction) {
         const int n = A.rows();   
         const int non_zero_in_A = A.nonZeros();
         SMatrix P_bar = initial_pairwise_aggregation(A, ktg);
@@ -289,6 +289,7 @@ namespace AGMG {
             const SMatrix & P_bar_trans = P_bar.transpose();
             const SMatrix & A_bar = P_bar_trans * A * P_bar;
             if(A_bar.nonZeros() <= non_zero_in_A / tou) break;
+            if(A_bar.rows() < max_restriction) break;
             P_bar = further_pairwise_aggregation(A, ktg, P_bar, P_bar_trans, A_bar);
             std::cerr << "Round " << s << " completed. Size: " << P_bar.cols() << std::endl;
         }

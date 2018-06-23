@@ -17,7 +17,7 @@
 #include "mkl_spblas.h"
 #include "mkl_service.h"
 
-#define size 128
+#define SZ 128
 
 std::string itoa(int number) {
     std::string ret;
@@ -121,8 +121,6 @@ MatrixCSR * readMatrixCPUMemoryCSR(std::string filename) {
 
     int filled = 0;
 
-    auto start = std::chrono::system_clock::now();
-
     std::vector< std::vector <std::pair<int, double> > > matrix_data(M);
     for (int l = 0; l < L; l++) {
         int m, n;
@@ -146,10 +144,6 @@ MatrixCSR * readMatrixCPUMemoryCSR(std::string filename) {
     assert(filled == L);
     fin.close();
     
-    auto end = std::chrono::system_clock::now();
-    std::chrono::duration<double> diff = end-start;
-
-
     return matrix_csr;
 }
 
@@ -245,12 +239,13 @@ void printArgumentsInfo() {
     std::cout << std::endl;
 
     std::cout << termcolor::yellow << "Argument 3: " << termcolor::reset;
-    std::cout << "The number of passes in AGMG, default value is 6.";
+    std::cout << "Aggregate based on npass or final size of Ac, 0 for npass, 1 for final size of Ac.";
     std::cout << std::endl;
     std::cout << std::endl;
 
+
     std::cout << termcolor::yellow << "Argument 4: " << termcolor::reset;
-    std::cout << "The parameter tou in AGMG, default value is 4.";
+    std::cout << "If Arg3 is 0, Arg4 = npass, else Arg4 = final size of Ac\n            For final size, aggreg. is done till size becomes less than finalsz";
     std::cout << std::endl;
     std::cout << std::endl;
 
@@ -270,12 +265,30 @@ void printArgumentsInfo() {
     std::cout << std::endl;
 }
 
+void printTimeScreen(string s, double tm) {
+  std::cout << termcolor::green << termcolor::bold << s << termcolor::reset;
+  for(int i = 0; i < 50 - s.size(); i++) {
+    std::cout << " ";
+  }
+  std::cout << ": " << tm << " seconds.\n";
+}
+
+template<typename T>
+void printScreen(string s, T tm) {
+  std::cout << termcolor::green << termcolor::bold << s << termcolor::reset;
+  for(int i = 0; i < 50 - s.size(); i++) {
+    std::cout << " ";
+  }
+  std::cout << ": " << tm << ".\n";
+}
+
 int main (int argc, char ** argv) {
+  srand(0);
 
   string matrixname;
   double ktg;
-  int npass;
-  double tou;
+  int npass = 1000000000;
+  double tou = 1e18;
   
   if(argc != 8) {
     printArgumentsInfo();
@@ -284,43 +297,42 @@ int main (int argc, char ** argv) {
 
   matrixname = argv[1];
   ktg = stod(argv[2]);
-  npass = stoi(argv[3]);
-  tou = stod(argv[4]);
+
+  int npassorfinalsz = stoi(argv[3]);
+  int arg4 = stod(argv[4]);
+  if(npassorfinalsz == 0) {
+    npass = arg4;
+    arg4 = 0;
+  }
   int PRECODITIONER_USE = stoi(argv[5]);
   int GMRES_NON_RESTART_ITERATIONS = stoi(argv[6]);
   int ILU_PRECONDITIONER = stoi(argv[7]);
 
 
   SMatrix T = readMatrix(string("../../matrices/") + matrixname + string(".mtx"));
-  cerr << ktg << " " << npass << " " << tou << endl;
-
 
   auto start = std::chrono::system_clock::now();
-
-  auto pro_matrix = AGMG::multiple_pairwise_aggregation(T, ktg, npass, tou);
-  
+  auto pro_matrix = AGMG::multiple_pairwise_aggregation(T, ktg, npass, tou, arg4);
   auto end = std::chrono::system_clock::now();
-
   std::chrono::duration<double> diff = end-start;
-  std::cout << "Aggregation completed.\n";
-  std::cout << "Time for aggregation: " << diff.count() << " s\n";
+  printf("\n");
+  printTimeScreen("Aggregation time", diff.count());
+
+  start = std::chrono::system_clock::now();
 
   SMatrix pro_matrix_transpose = pro_matrix.transpose();
   SMatrix coarse_grid_matrix_csr = (pro_matrix_transpose * T * pro_matrix);
   SMatrix AC_inverse = invertSparseMatrix(coarse_grid_matrix_csr);
-  srand(0);
-
-  /*---------------------------------------------------------------------------
-  * Define arrays for the upper triangle of the coefficient matrix
-  * Compressed sparse row storage is used for sparse representation
-  *---------------------------------------------------------------------------*/
-
-  //MatrixCSR * matrix = readMatrixCPUMemoryCSR("../../matrices/testfgmres.mtx");
+  
   MatrixCSR * matrix = convertEigenToMKL(T);
   MatrixCSR * matrix_one_based = convertToOneBased(matrix);
   MatrixCSR * matrix_compressed_inverse = convertEigenToMKL(AC_inverse);
   MatrixCSR * matrix_p = convertEigenToMKL(pro_matrix);
   MatrixCSR * matrix_p_transpose = convertEigenToMKL(pro_matrix_transpose);
+
+  end = std::chrono::system_clock::now();
+  diff = end - start;
+  printTimeScreen("Conversion from Eigen to MKL and Ac-1", diff.count());
 
   MKL_INT N = matrix->rows;
   int nnz = matrix->nnz;
@@ -328,9 +340,9 @@ int main (int argc, char ** argv) {
   /*---------------------------------------------------------------------------
   * Allocate storage for the ?par parameters and the solution/rhs/residual vectors
   *---------------------------------------------------------------------------*/
-  MKL_INT ipar[size];
+  MKL_INT ipar[SZ];
   int total = ((2* GMRES_NON_RESTART_ITERATIONS + 1) * N + GMRES_NON_RESTART_ITERATIONS*(GMRES_NON_RESTART_ITERATIONS + 9)/2 + 1);
-  double * dpar = new double[size];
+  double * dpar = new double[SZ];
   double * tmp = new double[total];
   double * expected_solution = new double[N];
   double * buffer = new double[N];
@@ -417,7 +429,7 @@ int main (int argc, char ** argv) {
   dpar[0] = 1.0E-3;
 
   if(ILU_PRECONDITIONER) {
-    printf("Incomplete LU running..");
+    auto start = std::chrono::system_clock::now();
     MKL_INT ierr;
     dcsrilu0(&N, matrix->val, matrix_one_based->rowPtr, matrix_one_based->colIdx, bilu0, ipar, dpar, &ierr);
     if(ierr != 0) {
@@ -425,9 +437,12 @@ int main (int argc, char ** argv) {
       printf("Error code: %d\n", ierr);
       return 1;
     }
-    printf("Incomplete LU computed..");
+    auto end = std::chrono::system_clock::now();
+    std::chrono::duration<double> diff = end-start;
+    printTimeScreen("Incomplete LU time", diff.count());
   }
-  
+
+  start = std::chrono::system_clock::now();
   /*---------------------------------------------------------------------------
   * Check the correctness and consistency of the newly set parameters
   *---------------------------------------------------------------------------*/
@@ -508,6 +523,9 @@ int main (int argc, char ** argv) {
 
 COMPLETE:ipar[12] = 0;
   dfgmres_get (&ivar, computed_solution, rhs, &RCI_request, ipar, dpar, tmp, &itercount);
+  end = std::chrono::system_clock::now();
+  diff = end-start;
+  printTimeScreen("Time taken for FGMRES", diff.count());
   /*---------------------------------------------------------------------------
   * Print solution vector: computed_solution[N] and the number of iterations: itercount
   *---------------------------------------------------------------------------*/
@@ -524,7 +542,8 @@ COMPLETE:ipar[12] = 0;
   //     printf ("expected_solution[%d]=", i);
   //     printf ("%e\n", expected_solution[i]);
   //   }
-  printf ("\n Number of iterations: %d\n", itercount);
+  printf("\n");
+  printScreen("Number of iterations", itercount);
 
   for(int i = 0; i < N; i++) {
     expected_solution[i] -= computed_solution[i];
