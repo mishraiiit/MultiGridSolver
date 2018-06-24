@@ -364,7 +364,7 @@ int main (int argc, char ** argv) {
   }
 
   for(int i = 0; i < N; i++) {
-    expected_solution[i] = rand();
+    expected_solution[i] = rand() / (RAND_MAX + 0.0);
   }
   /*---------------------------------------------------------------------------
   * Some additional variables to use with the RCI (P)FGMRES solver
