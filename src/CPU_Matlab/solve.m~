@@ -1,21 +1,17 @@
 clc, clear all
-filename = 'CSky3d30'; kappa = 10; npass = 2; l = 2; symm = 0; kappa_symm = 8;
+filename = 'CSky3d30'; kappa = 10; npass = 2; l = 2; symm = 0;
 A = mmread(strcat('../../matrices/', filename, '.mtx'));
 nrows = size(A, 1); b = rand(nrows,1);
 
 %% Construct coarse grid matrix
-if symm == 0 % if unsymmetric
 tic, [P, ind] = agtwolev(A, l, symm, npass, kappa); toc
-else % if symmetric
-tic, [P, ind] = agtwolev(A, l, symm, npass, kappa_unsymm); toc
-end    
 Ac = P' * A * P;
 setup.type = 'nofill';[L,U] = ilu(A,setup);
-%% Try preconditioners: try taking either of M1 or M2 in any order
-M1 = @(x) (P*(Ac\(P'*x)));
-M2 = @(x) (U\(L\x));
+%% Try preconditioners: try taking either of M1
+M2 = @(x) (P*(Ac\(P'*x)));
+M1 = @(x) (U\(L\x));
 %M2 = @(x) (diag(diag(A)) \ x);
-%M2 = @(x)(triu(A) \ ((tril(A) \ x) ./ diag(A)));
+%M1 = @(x)(triu(A) \ ((tril(A) \ x) ./ diag(A)));
 
 %% Try additive preconditioners
 %precon_solve = @(x) ( M1(x) + ( M2(x) ));
