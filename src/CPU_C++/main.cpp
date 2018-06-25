@@ -239,7 +239,7 @@ void printArgumentsInfo() {
     std::cout << std::endl;
 
     std::cout << termcolor::yellow << "Argument 3: " << termcolor::reset;
-    std::cout << "Aggregate based on npass or final size of Ac, 0 for npass, 1 for final size of Ac.";
+    std::cout << "Aggregate based on npass or final size of Ac, 0 for npass,\n            1 for final size of Ac.";
     std::cout << std::endl;
     std::cout << std::endl;
 
@@ -261,6 +261,16 @@ void printArgumentsInfo() {
 
     std::cout << termcolor::yellow << "Argument 7: " << termcolor::reset;
     std::cout << "Which smoother to use in preconditioner with multigrid.\n            0 for  DIAG_PRECONDITIONER, 1 for ILU_PRECONDITIONER";
+    std::cout << std::endl;
+    std::cout << std::endl;
+
+    std::cout << termcolor::yellow << "Argument 8: " << termcolor::reset;
+    std::cout << "Additive preconditioner or multiplicative preconditoner\n            0 for  Additive, 1 for Multiplicative";
+    std::cout << std::endl;
+    std::cout << std::endl;
+
+    std::cout << termcolor::yellow << "Argument 9: " << termcolor::reset;
+    std::cout << "Relative tolerance";
     std::cout << std::endl;
     std::cout << std::endl;
 }
@@ -290,7 +300,7 @@ int main (int argc, char ** argv) {
   int npass = 1000000000;
   double tou = 1e18;
   
-  if(argc != 8) {
+  if(argc != 10) {
     printArgumentsInfo();
     exit(1);
   }
@@ -307,6 +317,8 @@ int main (int argc, char ** argv) {
   int PRECODITIONER_USE = stoi(argv[5]);
   int GMRES_NON_RESTART_ITERATIONS = stoi(argv[6]);
   int ILU_PRECONDITIONER = stoi(argv[7]);
+  int ADDITIVE_PRECONDITIONER = 1 - stoi(argv[8]);
+  double RELATIVE_TOLERANCE = stod(argv[9]);
 
 
   SMatrix T = readMatrix(string("../../matrices/") + matrixname + string(".mtx"));
@@ -346,6 +358,7 @@ int main (int argc, char ** argv) {
   double * tmp = new double[total];
   double * expected_solution = new double[N];
   double * buffer = new double[N];
+  double * buffer1 = new double[N];
   double * diag = new double[N];
   double * rhs = new double[N];
   double * b = new double[N];
@@ -353,6 +366,7 @@ int main (int argc, char ** argv) {
   double * residual = new double[N];
   double * bilu0 = new double[nnz];
   double * inp, * out;
+  double nrm;
 
   for(int i = 0; i < N; i++) {
     diag[i] = 0;
@@ -410,7 +424,7 @@ int main (int argc, char ** argv) {
   *---------------------------------------------------------------------------*/
   for (i = 0; i < N; i++)
     {
-      computed_solution[i] = 1.0;
+      computed_solution[i] = 0.0;
     }
   /*---------------------------------------------------------------------------
   * Initialize the solver
@@ -477,35 +491,64 @@ int main (int argc, char ** argv) {
       i = 1;
       daxpy (&ivar, &dvar, rhs, &i, residual, &i);
       dvar = dnrm2 (&ivar, residual, &i);
-      if (dvar < 1.0E-3)
+      nrm = dnrm2 (&ivar, rhs, &i);
+      if (dvar / nrm < RELATIVE_TOLERANCE)
         goto COMPLETE;
       else
         goto ONE;
 
     case 3:
-      if(!ILU_PRECONDITIONER) {
-        // DIAG_PRECONDITIONER
-        inp = tmp + ipar[21] - 1;
-        out = tmp + ipar[22] - 1;
-        mkl_sparse_d_mv( SPARSE_OPERATION_NON_TRANSPOSE, 1.0, csrP_matrix_transpose, descrA, inp, 0.0, buffer);
-        mkl_sparse_d_mv( SPARSE_OPERATION_NON_TRANSPOSE, 1.0, csr_Ac_inverse, descrA, buffer, 0.0, out);
-        mkl_sparse_d_mv( SPARSE_OPERATION_NON_TRANSPOSE, 1.0, csrP_matrix, descrA, out, 0.0, buffer);
-        for(int i = 0; i < N; i++) {
-          out[i] = buffer[i] + (inp[i] / diag[i]);
+      if(ADDITIVE_PRECONDITIONER) {
+        if(!ILU_PRECONDITIONER) {
+          // DIAG_PRECONDITIONER
+          inp = tmp + ipar[21] - 1;
+          out = tmp + ipar[22] - 1;
+          mkl_sparse_d_mv( SPARSE_OPERATION_NON_TRANSPOSE, 1.0, csrP_matrix_transpose, descrA, inp, 0.0, buffer);
+          mkl_sparse_d_mv( SPARSE_OPERATION_NON_TRANSPOSE, 1.0, csr_Ac_inverse, descrA, buffer, 0.0, out);
+          mkl_sparse_d_mv( SPARSE_OPERATION_NON_TRANSPOSE, 1.0, csrP_matrix, descrA, out, 0.0, buffer);
+          for(int i = 0; i < N; i++) {
+            out[i] = buffer[i] + (inp[i] / diag[i]);
+          }
+        } else {
+          // ILU_PRECONDITIONER
+          inp = tmp + ipar[21] - 1;
+          out = tmp + ipar[22] - 1;
+          mkl_sparse_d_mv( SPARSE_OPERATION_NON_TRANSPOSE, 1.0, csrP_matrix_transpose, descrA, inp, 0.0, out);
+          mkl_sparse_d_mv( SPARSE_OPERATION_NON_TRANSPOSE, 1.0, csr_Ac_inverse, descrA, out, 0.0, buffer);
+          mkl_sparse_d_mv( SPARSE_OPERATION_NON_TRANSPOSE, 1.0, csrP_matrix, descrA, buffer, 0.0, out);
+          apply_prec_ILU0( N, bilu0, matrix_one_based->rowPtr, matrix_one_based->colIdx, inp, buffer);
+          for(int i = 0; i < N; i++) {
+            out[i] += buffer[i];
+          }
         }
       } else {
-        // ILU_PRECONDITIONER
-        inp = tmp + ipar[21] - 1;
-        out = tmp + ipar[22] - 1;
-        for(int i = 0; i < N; i++) {
-          out[i] = inp[i];
-        }
-        mkl_sparse_d_mv( SPARSE_OPERATION_NON_TRANSPOSE, 1.0, csrP_matrix_transpose, descrA, inp, 0.0, out);
-        mkl_sparse_d_mv( SPARSE_OPERATION_NON_TRANSPOSE, 1.0, csr_Ac_inverse, descrA, out, 0.0, buffer);
-        mkl_sparse_d_mv( SPARSE_OPERATION_NON_TRANSPOSE, 1.0, csrP_matrix, descrA, buffer, 0.0, out);
-        apply_prec_ILU0( N, bilu0, matrix_one_based->rowPtr, matrix_one_based->colIdx, inp, buffer);
-        for(int i = 0; i < N; i++) {
-          out[i] += buffer[i];
+        if(!ILU_PRECONDITIONER) {
+          printf("Diagonal smoother with Multiplicative preconditioner isn't implemented yet.\n");
+          exit(1);
+        } else {
+          // ILU_PRECONDITIONER
+          inp = tmp + ipar[21] - 1;
+          out = tmp + ipar[22] - 1;
+          mkl_sparse_d_mv( SPARSE_OPERATION_NON_TRANSPOSE, 1.0, csrP_matrix_transpose, descrA, inp, 0.0, out);
+          // out = P^ x
+          mkl_sparse_d_mv( SPARSE_OPERATION_NON_TRANSPOSE, 1.0, csr_Ac_inverse, descrA, out, 0.0, buffer);
+          // buffer = Ac-1 PT x
+          mkl_sparse_d_mv( SPARSE_OPERATION_NON_TRANSPOSE, 1.0, csrP_matrix, descrA, buffer, 0.0, out);
+          // out = P Ac-1 PT x
+          apply_prec_ILU0( N, bilu0, matrix_one_based->rowPtr, matrix_one_based->colIdx, inp, buffer);
+          // buffer = ILU_Solve(x)
+          mkl_sparse_d_mv( SPARSE_OPERATION_NON_TRANSPOSE, 1.0, csrA, descrA, out, 0.0, buffer1);
+          // buffer1 = A P Ac-1 PT x
+          for(int i = 0; i < N; i++) {
+            out[i] += buffer[i];
+          }
+          // out = P Ac-1 PT x + ILU_Solve(x)
+          apply_prec_ILU0( N, bilu0, matrix_one_based->rowPtr, matrix_one_based->colIdx, buffer1, buffer);
+          // buffer = ILU_Solve(A P Ac-1 PT x)
+          for(int i = 0; i < N; i++) {
+            out[i] = out[i] - buffer[i];
+          }
+          // out = P Ac-1 PT x + ILU_Solve(x) - ILU_Solve(A P Ac-1 PT x)
         }
       }
       goto ONE;
