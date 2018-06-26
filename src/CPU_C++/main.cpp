@@ -325,6 +325,7 @@ int main (int argc, char ** argv) {
 
   auto start = std::chrono::system_clock::now();
   auto pro_matrix = AGMG::multiple_pairwise_aggregation(T, ktg, npass, tou, arg4);
+  writeMatrix(string("../../matrices/") + matrixname + string("promatrix.mtx"), pro_matrix);
   auto end = std::chrono::system_clock::now();
   std::chrono::duration<double> diff = end-start;
   printf("\n");
