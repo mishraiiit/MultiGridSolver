@@ -52,6 +52,8 @@ class MultiGridPrecond {
       SparseLUTimer.toc();
 
       IncompleteLUTimer.tic();
+      //this->ilut.setFillfactor(7);
+      this->ilut.setDroptol(1e-2);
       this->ilut.compute(A);
       IncompleteLUTimer.toc();
 
