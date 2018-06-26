@@ -9,10 +9,12 @@
 #include "AGMG.cpp"
 #include "../common/MatrixIO.cpp"
 #include "../common/termcolor.hpp"
+#include "TicToc.cpp"
 #include <typeinfo>
+#include <string>
 #define EIGEN_USE_MKL_ALL
 #include <Eigen/Sparse>
-#include <Eigen/SparseCholesky>
+#include <Eigen/SparseLU>
 
 class MultiGridPrecond {
   private:
@@ -20,7 +22,7 @@ class MultiGridPrecond {
     SMatrix Ac;
     SMatrix P;
     SMatrix Ptrans;
-    SimplicialLLT  <SparseMatrix<double> > solver;
+    SparseLU  <SparseMatrix<double> > solver;
     IncompleteLUT<double> ilut;
     double ktg;
     int npass;
@@ -30,20 +32,34 @@ class MultiGridPrecond {
   public:
     MultiGridPrecond(const SMatrix & A, const double ktg, const int npass,\
      const double tou, const bool multiplicative_precond, const bool use_preconditioner) {
+      TicToc AGMGTimer("AGMGTimer", 4);
+      TicToc IncompleteLUTimer("IncompleteLUTimer", 4);
+      TicToc SparseLUTimer("SparseLUTimer", 4);
+
       this->A = A;
       this->ktg = ktg;
       this->npass = npass;
       this->tou = tou;
+
+      AGMGTimer.tic();
       this->P = AGMG::multiple_pairwise_aggregation(A, ktg, npass, tou, 0);
+      AGMGTimer.toc();
       this->Ptrans = P.transpose();
       this->Ac = this->Ptrans * this->A * this->P;
+
+      SparseLUTimer.tic();
       this->solver.compute(Ac);
+      SparseLUTimer.toc();
+
+      IncompleteLUTimer.tic();
       this->ilut.compute(A);
+      IncompleteLUTimer.toc();
+
       this->multiplicative_precond = multiplicative_precond;
       this->use_preconditioner = use_preconditioner;
     };
 
-    template<typename T> 
+    template<typename T>
     T multigrid_solve(const T & vec) const {
       return (this->P * (this->solver.solve(this->Ptrans * vec)));
     };
@@ -54,7 +70,7 @@ class MultiGridPrecond {
         return vec;
       if(multiplicative_precond) {
         T res = multigrid_solve(vec);
-        return res + this->ilut.solve(vec) - this->ilut.solve(res);
+        return res + this->ilut.solve(vec) - this->ilut.solve(A * res);
       } else {
         return multigrid_solve(vec) + this->ilut.solve(vec);
       }
@@ -116,7 +132,7 @@ void printArgumentsInfo() {
 }
 
 template < class Matrix, class Vector, class Preconditioner, class Real >
-int 
+int
 BiCGSTABiml(const Matrix &A, Vector &x, const Vector &b, const Preconditioner &M, int &max_iter, Real &tol) {
   Real resid;
   Vector rho_1(1), rho_2(1), alpha(1), beta(1), omega(1);
@@ -128,7 +144,7 @@ BiCGSTABiml(const Matrix &A, Vector &x, const Vector &b, const Preconditioner &M
 
   if (normb == 0.0)
     normb = 1;
-  
+
   if ((resid = norm(r) / normb) <= tol) {
     tol = resid;
     max_iter = 0;
@@ -226,7 +242,7 @@ int main (int argc, char ** argv) {
   } else {
     std::cout << "BiCGSTABiml encountered a problem\n" << std::endl;
   }
-  
- 
+
+
   return 0;
 }
