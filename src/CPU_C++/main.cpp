@@ -11,7 +11,7 @@
 #include "../common/termcolor.hpp"
 #include <typeinfo>
 #include <Eigen/Sparse>
-#include <Eigen/SparseCholesky>
+#include <Eigen/SparseLU>
 #include "mkl_rci.h"
 #include "mkl_blas.h"
 #include "mkl_spblas.h"
@@ -176,7 +176,7 @@ void createMKLCSRHandle(sparse_matrix_t * csrA, MatrixCSR * matrix) {
 
 SMatrix invertSparseMatrix(SMatrix & matrix) {
   SparseMatrix<double> coarse_grid_matrix_inverse = matrix;
-  SimplicialLLT  <SparseMatrix<double> > solver;
+  SparseLU  <SparseMatrix<double> > solver;
   solver.compute(coarse_grid_matrix_inverse);
   SparseMatrix<double> I(coarse_grid_matrix_inverse.rows(), coarse_grid_matrix_inverse.cols());
   I.setIdentity();
