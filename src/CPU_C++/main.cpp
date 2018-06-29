@@ -9,6 +9,7 @@
 #include "AGMG.cpp"
 #include "../common/MatrixIO.cpp"
 #include "../common/termcolor.hpp"
+#include "../common/json.hpp";
 #include <typeinfo>
 #include <Eigen/Sparse>
 #include <Eigen/SparseLU>
@@ -33,71 +34,6 @@ struct MatrixCSR {
     MKL_INT * rowPtr, * colIdx;
     double * val;
 };
-
-void printIparInfo(MKL_INT * ipar) {
-    /*---------------------------------------------------------------------------
-  * Print the info about the RCI FGMRES method
-  *---------------------------------------------------------------------------*/
-  printf ("Some info about the current run of RCI FGMRES method:\n\n");
-  if (ipar[7])
-    {
-      printf ("As ipar[7]=%d, the automatic test for the maximal number of ", ipar[7]);
-      printf ("iterations will be\nperformed\n");
-    }
-  else
-    {
-      printf ("As ipar[7]=%d, the automatic test for the maximal number of ", ipar[7]);
-      printf ("iterations will be\nskipped\n");
-    }
-  printf ("+++\n");
-  if (ipar[8])
-    {
-      printf ("As ipar[8]=%d, the automatic residual test will be performed\n", ipar[8]);
-    }
-  else
-    {
-      printf ("As ipar[8]=%d, the automatic residual test will be skipped\n", ipar[8]);
-    }
-  printf ("+++\n");
-  if (ipar[9])
-    {
-      printf ("As ipar[9]=%d, the user-defined stopping test will be ", ipar[9]);
-      printf ("requested via\nRCI_request=2\n");
-    }
-  else
-    {
-      printf ("As ipar[9]=%d, the user-defined stopping test will not be ", ipar[9]);
-      printf ("requested, thus,\nRCI_request will not take the value 2\n");
-    }
-  printf ("+++\n");
-  if (ipar[10])
-    {
-      printf ("As ipar[10]=%d, the Preconditioned FGMRES iterations will be ", ipar[10]);
-      printf ("performed, thus,\nthe preconditioner action will be requested via ");
-      printf ("RCI_request=3\n");
-    }
-  else
-    {
-      printf ("As ipar[10]=%d, the Preconditioned FGMRES iterations will not ", ipar[10]);
-      printf ("be performed,\nthus, RCI_request will not take the value 3\n");
-    }
-  printf ("+++\n");
-  if (ipar[11])
-    {
-      printf ("As ipar[11]=%d, the automatic test for the norm of the next ", ipar[11]);
-      printf ("generated vector is\nnot equal to zero up to rounding and ");
-      printf ("computational errors will be performed,\nthus, RCI_request will not ");
-      printf ("take the value 4\n");
-    }
-  else
-    {
-      printf ("As ipar[11]=%d, the automatic test for the norm of the next ", ipar[11]);
-      printf ("generated vector is\nnot equal to zero up to rounding and ");
-      printf ("computational errors will be skipped,\nthus, the user-defined test ");
-      printf ("will be requested via RCI_request=4\n");
-    }
-  printf ("+++\n\n");
-}
 
 MatrixCSR * readMatrixCPUMemoryCSR(std::string filename) {
     std::ifstream fin(filename);
@@ -221,60 +157,6 @@ MatrixCSR * convertToOneBased(MatrixCSR * matrix) {
   return to_return;
 }
 
-void printArgumentsInfo() {
-    std::cout << std::endl;
-    std::cout << termcolor::red << "Invalid arguments.\n" << std::endl;
-
-    std::cout << termcolor::green << "Usage:" << termcolor::bold << " ./main Arg1 Arg2 Arg3 Arg4 Arg5 Arg6 Arg7\n\n" << termcolor::reset;
-    std::cout << termcolor::reset << std::endl;
-
-    std::cout << termcolor::yellow << "Argument 1: " << termcolor::reset;
-    std::cout << "Name of matrix file present in /matrices folder,\n            do not put .mtx after the filename in argument.";
-    std::cout << std::endl;
-    std::cout << std::endl;
-
-    std::cout << termcolor::yellow << "Argument 2: " << termcolor::reset;
-    std::cout << "The parameter ktg in AGMG, default value is 8.";
-    std::cout << std::endl;
-    std::cout << std::endl;
-
-    std::cout << termcolor::yellow << "Argument 3: " << termcolor::reset;
-    std::cout << "Aggregate based on npass or final size of Ac, 0 for npass,\n            1 for final size of Ac.";
-    std::cout << std::endl;
-    std::cout << std::endl;
-
-
-    std::cout << termcolor::yellow << "Argument 4: " << termcolor::reset;
-    std::cout << "If Arg3 is 0, Arg4 = npass, else Arg4 = final size of Ac\n            For final size, aggreg. is done till size becomes less than finalsz";
-    std::cout << std::endl;
-    std::cout << std::endl;
-
-    std::cout << termcolor::yellow << "Argument 5: " << termcolor::reset;
-    std::cout << "Whether to use preconditioner with FGMRES [Multigrid +\n            some smoother], 1 for [Yes], 0 for [No]";
-    std::cout << std::endl;
-    std::cout << std::endl;
-
-    std::cout << termcolor::yellow << "Argument 6: " << termcolor::reset;
-    std::cout << "The number of iterations after which we restart FGMRES,\n            default value is 10.";
-    std::cout << std::endl;
-    std::cout << std::endl;
-
-    std::cout << termcolor::yellow << "Argument 7: " << termcolor::reset;
-    std::cout << "Which smoother to use in preconditioner with multigrid.\n            0 for  DIAG_PRECONDITIONER, 1 for ILU_PRECONDITIONER";
-    std::cout << std::endl;
-    std::cout << std::endl;
-
-    std::cout << termcolor::yellow << "Argument 8: " << termcolor::reset;
-    std::cout << "Additive preconditioner or multiplicative preconditoner\n            0 for  Additive, 1 for Multiplicative";
-    std::cout << std::endl;
-    std::cout << std::endl;
-
-    std::cout << termcolor::yellow << "Argument 9: " << termcolor::reset;
-    std::cout << "Relative tolerance";
-    std::cout << std::endl;
-    std::cout << std::endl;
-}
-
 void printTimeScreen(string s, double tm) {
   std::cout << termcolor::green << termcolor::bold << s << termcolor::reset;
   for(int i = 0; i < 50 - s.size(); i++) {
@@ -295,30 +177,37 @@ void printScreen(string s, T tm) {
 int main (int argc, char ** argv) {
   srand(0);
 
+  if(argc != 2) {
+    printf("No input json configuration file given\n");
+    printf("Usage: $ ./main input.json\n");
+    exit(1);
+  }
+
+  ifstream inp_stream(argv[1]);
+  nlohmann::json j;
+  inp_stream >> j;
+
   string matrixname;
   double ktg;
   int npass = 1000000000;
   double tou = 1e18;
   
-  if(argc != 10) {
-    printArgumentsInfo();
-    exit(1);
-  }
+  matrixname = j["matrixName"];
+  ktg = j["kappa"];
 
-  matrixname = argv[1];
-  ktg = stod(argv[2]);
+  bool npassorfinalsz = j["aggregateByAcSize"];
+  int arg4 = j["acSizeOrNpassValue"];
 
-  int npassorfinalsz = stoi(argv[3]);
-  int arg4 = stod(argv[4]);
   if(npassorfinalsz == 0) {
     npass = arg4;
     arg4 = 0;
   }
-  int PRECODITIONER_USE = stoi(argv[5]);
-  int GMRES_NON_RESTART_ITERATIONS = stoi(argv[6]);
-  int ILU_PRECONDITIONER = stoi(argv[7]);
-  int ADDITIVE_PRECONDITIONER = 1 - stoi(argv[8]);
-  double RELATIVE_TOLERANCE = stod(argv[9]);
+
+  int PRECODITIONER_USE = j["usePreconditioner"];
+  int GMRES_NON_RESTART_ITERATIONS = j["restartIterationsGMRES"];
+  int ILU_PRECONDITIONER = j["ILUSmoother"];
+  int ADDITIVE_PRECONDITIONER = 1 - ((int) j["multiplicativePreconditioner"]);
+  double RELATIVE_TOLERANCE = j["relativeTolerance"];
 
 
   SMatrix T = readMatrix(string("../../matrices/") + matrixname + string(".mtx"));

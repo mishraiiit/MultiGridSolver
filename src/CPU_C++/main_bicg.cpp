@@ -9,6 +9,7 @@
 #include "AGMG.cpp"
 #include "../common/MatrixIO.cpp"
 #include "../common/termcolor.hpp"
+#include "../common/json.hpp"
 #include "TicToc.cpp"
 #include <typeinfo>
 #include <string>
@@ -89,50 +90,6 @@ inline double norm(const V & A) {
   return A.norm();
 }
 
-void printArgumentsInfo() {
-    std::cout << std::endl;
-    std::cout << termcolor::red << "Invalid arguments.\n" << std::endl;
-
-    std::cout << termcolor::green << "Usage:" << termcolor::bold << " ./main_bicg Arg1 Arg2 Arg3 Arg4 Arg5 Arg6 Arg7\n\n" << termcolor::reset;
-    std::cout << termcolor::reset << std::endl;
-
-    std::cout << termcolor::yellow << "Argument 1: " << termcolor::reset;
-    std::cout << "Name of matrix file present in /matrices folder,\n            do not put .mtx after the filename in argument.";
-    std::cout << std::endl;
-    std::cout << std::endl;
-
-    std::cout << termcolor::yellow << "Argument 2: " << termcolor::reset;
-    std::cout << "The parameter ktg in AGMG, default value is 8.";
-    std::cout << std::endl;
-    std::cout << std::endl;
-
-    std::cout << termcolor::yellow << "Argument 3: " << termcolor::reset;
-    std::cout << "Aggregate based on npass or final size of Ac, 0 for npass,\n            1 for final size of Ac.";
-    std::cout << std::endl;
-    std::cout << std::endl;
-
-
-    std::cout << termcolor::yellow << "Argument 4: " << termcolor::reset;
-    std::cout << "If Arg3 is 0, Arg4 = npass, else Arg4 = final size of Ac\n            For final size, aggreg. is done till size becomes less than finalsz";
-    std::cout << std::endl;
-    std::cout << std::endl;
-
-    std::cout << termcolor::yellow << "Argument 5: " << termcolor::reset;
-    std::cout << "Whether to use preconditioner with BICG                \n             1 for yes, 0 for no";
-    std::cout << std::endl;
-    std::cout << std::endl;
-
-    std::cout << termcolor::yellow << "Argument 6: " << termcolor::reset;
-    std::cout << "Additive preconditioner or multiplicative preconditoner\n            0 for  Additive, 1 for Multiplicative";
-    std::cout << std::endl;
-    std::cout << std::endl;
-
-    std::cout << termcolor::yellow << "Argument 7: " << termcolor::reset;
-    std::cout << "Relative tolerance";
-    std::cout << std::endl;
-    std::cout << std::endl;
-}
-
 template < class Matrix, class Vector, class Preconditioner, class Real >
 int
 BiCGSTABiml(const Matrix &A, Vector &x, const Vector &b, const Preconditioner &M, int &max_iter, Real &tol) {
@@ -200,29 +157,35 @@ BiCGSTABiml(const Matrix &A, Vector &x, const Vector &b, const Preconditioner &M
 int main (int argc, char ** argv) {
   srand(0);
 
-  if(argc != 8) {
-    printArgumentsInfo();
+  if(argc != 2) {
+    printf("No input json configuration file given\n");
+    printf("Usage: $ ./main input.json\n");
     exit(1);
   }
 
+  ifstream inp_stream(argv[1]);
+  nlohmann::json j;
+  inp_stream >> j;
 
   string matrixname;
   double ktg;
   int npass = 1000000000;
   double tou = 1e18;
 
-  matrixname = argv[1];
-  ktg = stod(argv[2]);
+  matrixname = j["matrixName"];
+  ktg = j["kappa"];
 
-  int npassorfinalsz = stoi(argv[3]);
-  int arg4 = stod(argv[4]);
+  bool npassorfinalsz = j["aggregateByAcSize"];
+  int arg4 = j["acSizeOrNpassValue"];
+
   if(npassorfinalsz == 0) {
     npass = arg4;
     arg4 = 0;
   }
-  bool use_preconditioner = stoi(argv[5]);
-  bool multiplicative_precond = stoi(argv[6]);
-  double tol = stod(argv[7]);
+
+  bool use_preconditioner = j["usePreconditioner"];
+  bool multiplicative_precond = j["multiplicativePreconditioner"];
+  double tol = j["relativeTolerance"];
 
   SMatrix A = readMatrix(string("../../matrices/") + matrixname + string(".mtx"));
 
