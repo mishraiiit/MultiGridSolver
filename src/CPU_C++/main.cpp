@@ -13,6 +13,7 @@
 #include <typeinfo>
 #include <Eigen/Sparse>
 #include <Eigen/SparseLU>
+#include "mkl_dss.h"
 #include "mkl_rci.h"
 #include "mkl_blas.h"
 #include "mkl_spblas.h"
@@ -30,7 +31,7 @@ std::string itoa(int number) {
 }
 
 struct MatrixCSR {
-    int rows, cols, nnz;
+    MKL_INT rows, cols, nnz;
     MKL_INT * rowPtr, * colIdx;
     double * val;
 };
@@ -108,16 +109,6 @@ MatrixCSR * convertEigenToMKL(const SMatrix & matrix) {
 
 void createMKLCSRHandle(sparse_matrix_t * csrA, MatrixCSR * matrix) {
   mkl_sparse_d_create_csr (csrA, SPARSE_INDEX_BASE_ZERO, matrix->rows, matrix->cols, matrix->rowPtr, matrix->rowPtr + 1, matrix->colIdx, matrix->val);
-}
-
-SMatrix invertSparseMatrix(SMatrix & matrix) {
-  SparseMatrix<double> coarse_grid_matrix_inverse = matrix;
-  SparseLU  <SparseMatrix<double> > solver;
-  solver.compute(coarse_grid_matrix_inverse);
-  SparseMatrix<double> I(coarse_grid_matrix_inverse.rows(), coarse_grid_matrix_inverse.cols());
-  I.setIdentity();
-  coarse_grid_matrix_inverse = solver.solve(I);
-  return SMatrix(coarse_grid_matrix_inverse);
 }
 
 void apply_prec_ILU0(MKL_INT n, double *bilu0, MKL_INT * ia, MKL_INT * ja, double * v, double * pv) {
@@ -224,13 +215,39 @@ int main (int argc, char ** argv) {
 
   SMatrix pro_matrix_transpose = pro_matrix.transpose();
   SMatrix coarse_grid_matrix_csr = (pro_matrix_transpose * T * pro_matrix);
-  SMatrix AC_inverse = invertSparseMatrix(coarse_grid_matrix_csr);
-  
+
   MatrixCSR * matrix = convertEigenToMKL(T);
   MatrixCSR * matrix_one_based = convertToOneBased(matrix);
-  MatrixCSR * matrix_compressed_inverse = convertEigenToMKL(AC_inverse);
+  MatrixCSR * matrix_compressed = convertEigenToMKL(coarse_grid_matrix_csr);
   MatrixCSR * matrix_p = convertEigenToMKL(pro_matrix);
   MatrixCSR * matrix_p_transpose = convertEigenToMKL(pro_matrix_transpose);
+
+  _MKL_DSS_HANDLE_t dss_handle;
+  MKL_INT opt = MKL_DSS_ZERO_BASED_INDEXING;
+  MKL_INT opt_defaults = MKL_DSS_DEFAULTS;
+  if(dss_create(dss_handle, opt) != MKL_DSS_SUCCESS) {
+  	printf("dss_create() didn't work correctly\n");
+  	exit(1);
+  }
+
+  MKL_INT non_sym = MKL_DSS_NON_SYMMETRIC;
+  if(dss_define_structure(dss_handle, non_sym, matrix_compressed->rowPtr,\
+    matrix_compressed->rows, matrix_compressed->cols, matrix_compressed->colIdx, matrix_compressed->nnz) != MKL_DSS_SUCCESS) {
+  	printf("dss_define_structure() didn't work correctly\n");
+    exit(1);
+  }
+
+  MKL_INT reorder_opt = MKL_DSS_AUTO_ORDER;
+  if(dss_reorder(dss_handle, reorder_opt, NULL) != MKL_DSS_SUCCESS) {
+  	printf("dss_reorder() didn't work correctly\n");
+  	exit(1);
+  }
+
+  MKL_INT dss_indefinte = MKL_DSS_INDEFINITE;
+  if(dss_factor_real(dss_handle, dss_indefinte, matrix_compressed->val) != MKL_DSS_SUCCESS) {
+  	printf("dss_factor_real() didn't work correctly\n");
+  	exit(1);
+  }
 
   end = std::chrono::system_clock::now();
   diff = end - start;
@@ -292,11 +309,6 @@ int main (int argc, char ** argv) {
 
   sparse_matrix_t csrP_matrix_transpose;
   createMKLCSRHandle(&csrP_matrix_transpose, matrix_p_transpose);
-
-  sparse_matrix_t csr_Ac_inverse;
-  createMKLCSRHandle(&csr_Ac_inverse, matrix_compressed_inverse);
-
-  createMKLCSRHandle;
   
   /*---------------------------------------------------------------------------
   * Initialize variables and the right hand side through matrix-vector product
@@ -394,7 +406,8 @@ int main (int argc, char ** argv) {
           inp = tmp + ipar[21] - 1;
           out = tmp + ipar[22] - 1;
           mkl_sparse_d_mv( SPARSE_OPERATION_NON_TRANSPOSE, 1.0, csrP_matrix_transpose, descrA, inp, 0.0, buffer);
-          mkl_sparse_d_mv( SPARSE_OPERATION_NON_TRANSPOSE, 1.0, csr_Ac_inverse, descrA, buffer, 0.0, out);
+          MKL_INT nrhs = 1;
+          dss_solve_real(dss_handle, opt_defaults, out, nrhs, buffer);
           mkl_sparse_d_mv( SPARSE_OPERATION_NON_TRANSPOSE, 1.0, csrP_matrix, descrA, out, 0.0, buffer);
           for(int i = 0; i < N; i++) {
             out[i] = buffer[i] + (inp[i] / diag[i]);
@@ -404,7 +417,8 @@ int main (int argc, char ** argv) {
           inp = tmp + ipar[21] - 1;
           out = tmp + ipar[22] - 1;
           mkl_sparse_d_mv( SPARSE_OPERATION_NON_TRANSPOSE, 1.0, csrP_matrix_transpose, descrA, inp, 0.0, out);
-          mkl_sparse_d_mv( SPARSE_OPERATION_NON_TRANSPOSE, 1.0, csr_Ac_inverse, descrA, out, 0.0, buffer);
+          MKL_INT nrhs = 1;
+          dss_solve_real(dss_handle, opt_defaults, out, nrhs, buffer);
           mkl_sparse_d_mv( SPARSE_OPERATION_NON_TRANSPOSE, 1.0, csrP_matrix, descrA, buffer, 0.0, out);
           apply_prec_ILU0( N, bilu0, matrix_one_based->rowPtr, matrix_one_based->colIdx, inp, buffer);
           for(int i = 0; i < N; i++) {
@@ -421,7 +435,8 @@ int main (int argc, char ** argv) {
           out = tmp + ipar[22] - 1;
           mkl_sparse_d_mv( SPARSE_OPERATION_NON_TRANSPOSE, 1.0, csrP_matrix_transpose, descrA, inp, 0.0, out);
           // out = P^ x
-          mkl_sparse_d_mv( SPARSE_OPERATION_NON_TRANSPOSE, 1.0, csr_Ac_inverse, descrA, out, 0.0, buffer);
+          MKL_INT nrhs = 1;
+          dss_solve_real(dss_handle, opt_defaults, out, nrhs, buffer);
           // buffer = Ac-1 PT x
           mkl_sparse_d_mv( SPARSE_OPERATION_NON_TRANSPOSE, 1.0, csrP_matrix, descrA, buffer, 0.0, out);
           // out = P Ac-1 PT x
@@ -488,7 +503,6 @@ COMPLETE:ipar[12] = 0;
   MKL_Free_Buffers ();
   free(matrix);
   free(matrix_one_based);
-  free(matrix_compressed_inverse);
   free(matrix_p);
   free(matrix_p_transpose);
 
