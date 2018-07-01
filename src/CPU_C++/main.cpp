@@ -8,8 +8,8 @@
 #include <vector>
 #include "AGMG.cpp"
 #include "../common/MatrixIO.cpp"
-#include "../common/termcolor.hpp"
 #include "../common/json.hpp";
+#include "TicToc.cpp"
 #include <typeinfo>
 #include <Eigen/Sparse>
 #include <Eigen/SparseLU>
@@ -148,23 +148,6 @@ MatrixCSR * convertToOneBased(MatrixCSR * matrix) {
   return to_return;
 }
 
-void printTimeScreen(string s, double tm) {
-  std::cout << termcolor::green << termcolor::bold << s << termcolor::reset;
-  for(int i = 0; i < 50 - s.size(); i++) {
-    std::cout << " ";
-  }
-  std::cout << ": " << tm << " seconds.\n";
-}
-
-template<typename T>
-void printScreen(string s, T tm) {
-  std::cout << termcolor::green << termcolor::bold << s << termcolor::reset;
-  for(int i = 0; i < 50 - s.size(); i++) {
-    std::cout << " ";
-  }
-  std::cout << ": " << tm << ".\n";
-}
-
 int main (int argc, char ** argv) {
   srand(0);
 
@@ -200,28 +183,37 @@ int main (int argc, char ** argv) {
   int ADDITIVE_PRECONDITIONER = 1 - ((int) j["multiplicativePreconditioner"]);
   double RELATIVE_TOLERANCE = j["relativeTolerance"];
 
+  TicToc MatrixReadTime("Matrix Read Time", 4);
+  TicToc AggregationTime("Aggregation Time", 4);
+  TicToc EigenToMKLTime("Eigen to MKL Time", 4);
+  TicToc DssInitLUTime("DssInitLU Time", 4);
+  TicToc IncompleteLUTime("IncompleteLUTime", 4);
+  TicToc DGMRESInitTime("DGMRESInitTime", 4);
+  TicToc DGMRESMainTime("DGMRESMainTime", 4);
 
+  MatrixReadTime.tic();
   SMatrix T = readMatrix(string("../../matrices/") + matrixname + string(".mtx"));
+  MatrixReadTime.toc();
 
-  auto start = std::chrono::system_clock::now();
+  AggregationTime.tic();
   auto pro_matrix = AGMG::multiple_pairwise_aggregation(T, ktg, npass, tou, arg4);
-  writeMatrix(string("../../matrices/") + matrixname + string("promatrix.mtx"), pro_matrix);
-  auto end = std::chrono::system_clock::now();
-  std::chrono::duration<double> diff = end-start;
-  printf("\n");
-  printTimeScreen("Aggregation time", diff.count());
+  AggregationTime.toc();
 
-  start = std::chrono::system_clock::now();
+  // writeMatrix(string("../../matrices/") + matrixname + string("promatrix.mtx"), pro_matrix);
+  
 
+  EigenToMKLTime.tic();
   SMatrix pro_matrix_transpose = pro_matrix.transpose();
   SMatrix coarse_grid_matrix_csr = (pro_matrix_transpose * T * pro_matrix);
-
   MatrixCSR * matrix = convertEigenToMKL(T);
   MatrixCSR * matrix_one_based = convertToOneBased(matrix);
   MatrixCSR * matrix_compressed = convertEigenToMKL(coarse_grid_matrix_csr);
   MatrixCSR * matrix_p = convertEigenToMKL(pro_matrix);
   MatrixCSR * matrix_p_transpose = convertEigenToMKL(pro_matrix_transpose);
+  EigenToMKLTime.toc();
 
+
+  DssInitLUTime.tic();
   _MKL_DSS_HANDLE_t dss_handle;
   MKL_INT opt = MKL_DSS_ZERO_BASED_INDEXING;
   MKL_INT opt_defaults = MKL_DSS_DEFAULTS;
@@ -248,11 +240,11 @@ int main (int argc, char ** argv) {
   	printf("dss_factor_real() didn't work correctly\n");
   	exit(1);
   }
+  DssInitLUTime.toc();
 
-  end = std::chrono::system_clock::now();
-  diff = end - start;
-  printTimeScreen("Conversion from Eigen to MKL and Ac-1", diff.count());
 
+
+  DGMRESInitTime.tic();
   MKL_INT N = matrix->rows;
   int nnz = matrix->nnz;
 
@@ -275,14 +267,16 @@ int main (int argc, char ** argv) {
   double * inp, * out;
   double nrm;
 
-  for(int i = 0; i < N; i++) {
-    diag[i] = 0;
-    for(int j = matrix->rowPtr[i]; j < matrix->rowPtr[i + 1]; j++) {
-      if(i == matrix->colIdx[j]) {
-        diag[i] = matrix->val[j];
-      }
-    }
-  }
+  if(!ILU_PRECONDITIONER) {
+	  for(int i = 0; i < N; i++) {
+	    diag[i] = 0;
+	    for(int j = matrix->rowPtr[i]; j < matrix->rowPtr[i + 1]; j++) {
+	      if(i == matrix->colIdx[j]) {
+	        diag[i] = matrix->val[j];
+	      }
+	    }
+	  }
+   }
 
   for(int i = 0; i < N; i++) {
     expected_solution[i] = rand() / (RAND_MAX + 0.0);
@@ -343,9 +337,10 @@ int main (int argc, char ** argv) {
   ipar[10] = PRECODITIONER_USE;
   ipar[30] = 0;
   dpar[0] = 1.0E-3;
+  DGMRESInitTime.toc();
 
   if(ILU_PRECONDITIONER) {
-    auto start = std::chrono::system_clock::now();
+  	IncompleteLUTime.tic();
     MKL_INT ierr;
     dcsrilu0(&N, matrix->val, matrix_one_based->rowPtr, matrix_one_based->colIdx, bilu0, ipar, dpar, &ierr);
     if(ierr != 0) {
@@ -353,12 +348,10 @@ int main (int argc, char ** argv) {
       printf("Error code: %d\n", ierr);
       return 1;
     }
-    auto end = std::chrono::system_clock::now();
-    std::chrono::duration<double> diff = end-start;
-    printTimeScreen("Incomplete LU time", diff.count());
+    IncompleteLUTime.toc();
   }
 
-  start = std::chrono::system_clock::now();
+  DGMRESMainTime.tic();
   /*---------------------------------------------------------------------------
   * Check the correctness and consistency of the newly set parameters
   *---------------------------------------------------------------------------*/
@@ -471,9 +464,6 @@ int main (int argc, char ** argv) {
 
 COMPLETE:ipar[12] = 0;
   dfgmres_get (&ivar, computed_solution, rhs, &RCI_request, ipar, dpar, tmp, &itercount);
-  end = std::chrono::system_clock::now();
-  diff = end-start;
-  printTimeScreen("Time taken for FGMRES", diff.count());
   /*---------------------------------------------------------------------------
   * Print solution vector: computed_solution[N] and the number of iterations: itercount
   *---------------------------------------------------------------------------*/
@@ -490,8 +480,9 @@ COMPLETE:ipar[12] = 0;
   //     printf ("expected_solution[%d]=", i);
   //     printf ("%e\n", expected_solution[i]);
   //   }
+  DGMRESMainTime.toc();
   printf("\n");
-  printScreen("Number of iterations", itercount);
+  printScreen(4, "Number of FGMRES iterations", itercount);
 
   for(int i = 0; i < N; i++) {
     expected_solution[i] -= computed_solution[i];

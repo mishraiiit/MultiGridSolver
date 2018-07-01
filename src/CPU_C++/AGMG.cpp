@@ -1,5 +1,6 @@
 #include <iostream>
 #include <typeinfo>
+#include "TicToc.cpp"
 #include <Eigen/Sparse>
 #include <bits/stdc++.h>
 #include <deque>
@@ -278,12 +279,29 @@ namespace AGMG {
         return P;
     }
 
+    const string itoa(int number) {
+        string ret;
+        while(number != 0) {
+            ret = ((char)('0' + (number % 10))) + ret;
+            number = number / 10;
+        }
+        return ret;
+    }
+
+    const string getRoundSentence(const int n) {
+        string output;
+        output += "AGMG Round ";
+        output += itoa(n);
+        output += " completed, matrix size";
+        return output;
+    }
+
     const SMatrix multiple_pairwise_aggregation 
     (const SMatrix & A, double ktg, int npass , double tou, int max_restriction) {
         const int n = A.rows();   
         const int non_zero_in_A = A.nonZeros();
         SMatrix P_bar = initial_pairwise_aggregation(A, ktg);
-        std::cerr << "Round 1 completed. Size: " << P_bar.cols() << std::endl;
+        printScreen(8, "AGMG Round 1 completed, matrix size", P_bar.cols());
 
         for(int s = 2; s <= npass; s++) {
             const SMatrix & P_bar_trans = P_bar.transpose();
@@ -291,7 +309,7 @@ namespace AGMG {
             if(A_bar.nonZeros() <= non_zero_in_A / tou) break;
             if(A_bar.rows() < max_restriction) break;
             P_bar = further_pairwise_aggregation(A, ktg, P_bar, P_bar_trans, A_bar);
-            std::cerr << "Round " << s << " completed. Size: " << P_bar.cols() << std::endl;
+            printScreen(8, getRoundSentence(s), P_bar.cols());
         }
         return P_bar;
     }

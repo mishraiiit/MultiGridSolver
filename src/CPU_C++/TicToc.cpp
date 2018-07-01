@@ -9,7 +9,11 @@
 #include <chrono>
 #include <ctime>
 #include <iostream>
+#include <string>
+#include "../common/termcolor.hpp"
 #include <stdio.h>
+
+#define LENGTH 60
 
 class TicToc {
     public:
@@ -30,10 +34,22 @@ class TicToc {
             for(int i = 0; i < level; i++) {
                 fprintf(stderr, " ");
             }
-            while(s.size() != 40)
+            while(s.size() != LENGTH)
                 s = s + ' ';
-            fprintf(stderr, "%s : %lf\n", s.c_str(), diff.count());
+            fprintf(stderr, "%s : %lf.\n", s.c_str(), diff.count());
         }
 };
+
+template<typename T>
+void printScreen(const int level, std::string s, const T tm) {
+  for(int i = 0; i < level; i++) {
+    std::cout << " ";
+  }
+  std::cout << termcolor::green << termcolor::bold << "[info] " << termcolor::reset;
+  while(s.size() + 18 != LENGTH) {
+    s = s + ' ';
+  }
+  std::cout << s << " : " << tm << ".\n";
+}
 
 #endif

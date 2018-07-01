@@ -8,26 +8,23 @@
 #include <vector>
 #include "AGMG.cpp"
 #include "../common/MatrixIO.cpp"
-#include "../common/termcolor.hpp"
 #include "../common/json.hpp"
 #include "TicToc.cpp"
 #include <typeinfo>
 #include <string>
 #define EIGEN_USE_MKL_ALL
+#include <Eigen/IterativeLinearSolvers>
+#include <Eigen/SparseCholesky>
 #include <Eigen/Sparse>
 #include <Eigen/SparseLU>
 
 class MultiGridPrecond {
   private:
     SMatrix A;
-    SMatrix Ac;
     SMatrix P;
     SMatrix Ptrans;
-    SparseLU  <SparseMatrix<double> > solver;
+    SparseLU <SparseMatrix<double> > solver;
     IncompleteLUT<double> ilut;
-    double ktg;
-    int npass;
-    double tou;
     bool multiplicative_precond;
     bool use_preconditioner;
   public:
@@ -38,18 +35,15 @@ class MultiGridPrecond {
       TicToc SparseLUTimer("SparseLUTimer", 4);
 
       this->A = A;
-      this->ktg = ktg;
-      this->npass = npass;
-      this->tou = tou;
-
       AGMGTimer.tic();
       this->P = AGMG::multiple_pairwise_aggregation(A, ktg, npass, tou, 0);
       AGMGTimer.toc();
       this->Ptrans = P.transpose();
-      this->Ac = this->Ptrans * this->A * this->P;
+      const SMatrix Ac = this->Ptrans * this->A * this->P;
 
       SparseLUTimer.tic();
-      this->solver.compute(Ac);
+      this->solver.analyzePattern(Ac);
+      this->solver.factorize(Ac);
       SparseLUTimer.toc();
 
       IncompleteLUTimer.tic();
@@ -202,8 +196,8 @@ int main (int argc, char ** argv) {
   int max_iter = 10000;
 
   if(BiCGSTABiml(A, x, b, precond, max_iter, tol) == 0) {
-    std::cout << tol << std::endl;
-    std::cout << max_iter << std::endl;
+    printScreen(4, "Tolerance ", tol);
+    printScreen(4, "Number of iterations BICG", max_iter);
   } else {
     std::cout << "BiCGSTABiml encountered a problem\n" << std::endl;
   }

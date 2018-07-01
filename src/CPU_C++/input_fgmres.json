@@ -1,8 +1,8 @@
 {
 	"matrixName" : "CSky2d400",
 	"kappa" : 10,
-	"aggregateByAcSize" : true,
-	"acSizeOrNpassValue" : 5000,
+	"aggregateByAcSize" : false,
+	"acSizeOrNpassValue" : 2,
 	"usePreconditioner" : true,
 	"restartIterationsGMRES" : 10,
 	"ILUSmoother" : true,
