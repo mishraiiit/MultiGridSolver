@@ -4,7 +4,7 @@ A serial implementation of the aggregation-based algebraic multigrid method for 
 
 ## Overview
 
-This project implements the algorithm described in [AGMG For Convection Diffusion](https://github.com/mishraiiit/MultiGridSolver/blob/master/docs/AGMG_For_Convection_Diffusion.pdf) paper in serial execution mode.
+This project implements algorithms 5.1, 5.2 and 5.3 described in [AGMG with Guaranteed Convergence Rate](https://github.com/mishraiiit/MultiGridSolver/blob/master/docs/AGMG_with_guarenteed_convergence_rate.pdf) paper, adapting the serial algorithms for GPU execution.
 
 ## System Requirements
 
