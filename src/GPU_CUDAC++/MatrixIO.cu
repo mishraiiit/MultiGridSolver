@@ -9,6 +9,7 @@
 #define MATRIX_IO
 #include <assert.h>
 #include <iostream>
+#include <vector>
 #include <chrono>
 #include <algorithm>
 #include <fstream>
