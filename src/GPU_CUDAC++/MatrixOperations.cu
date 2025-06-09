@@ -449,39 +449,78 @@ MatrixCSR * transposeCSRGPU_cudaSparse(MatrixCSR * matrix_gpu, cusparseHandle_t 
     @author : mishraiiit
 */
 
-MatrixCSC * convertCSRGPU_cudaSparse(MatrixCSR * matrix_gpu, cusparseHandle_t & handle) {
+MatrixCSC* convertCSRGPU_cudaSparse(MatrixCSR* matrix_gpu, cusparseHandle_t& handle) {
 
-    MatrixCSR * shallow_cpu = shallowCopyMatrixCSRGPUtoCPU(matrix_gpu);
-    MatrixCSC * shallow_cpu_csc = (MatrixCSC *) malloc(sizeof(MatrixCSC));
+    MatrixCSR* shallow_cpu = shallowCopyMatrixCSRGPUtoCPU(matrix_gpu);
+    MatrixCSC* shallow_cpu_csc = (MatrixCSC*)malloc(sizeof(MatrixCSC));
 
-    int * new_i;
-    int * new_j;
-    float * new_val;
+    int*   d_cscColPtr;
+    int*   d_cscRowInd;
+    float* d_cscVal;
 
-    assert(cudaMalloc(&new_i,
-        sizeof(int) * (shallow_cpu->cols + 1)) == cudaSuccess);
-    assert(cudaMalloc(&new_j,
-        sizeof(int) * (shallow_cpu->nnz)) == cudaSuccess);
-    assert(cudaMalloc(&new_val,
-        sizeof(float) * (shallow_cpu->nnz)) == cudaSuccess);
+    assert(cudaMalloc(&d_cscColPtr, sizeof(int)   * (shallow_cpu->cols + 1)) == cudaSuccess);
+    assert(cudaMalloc(&d_cscRowInd, sizeof(int)   * (shallow_cpu->nnz))      == cudaSuccess);
+    assert(cudaMalloc(&d_cscVal,   sizeof(float) * (shallow_cpu->nnz))      == cudaSuccess);
 
+    size_t bufferSize = 0;
+    void*  dBuffer    = NULL;
     
-    cusparseStatus_t status = cusparseScsr2csc(handle, shallow_cpu->rows,
-        shallow_cpu->cols, shallow_cpu->nnz, shallow_cpu->val, shallow_cpu->i,
-        shallow_cpu->j, new_val, new_j, new_i,
-        CUSPARSE_ACTION_NUMERIC, CUSPARSE_INDEX_BASE_ZERO);
-
+    cusparseStatus_t status = cusparseCsr2cscEx2_bufferSize(
+        handle,
+        shallow_cpu->rows,
+        shallow_cpu->cols,
+        shallow_cpu->nnz,
+        shallow_cpu->val,
+        shallow_cpu->i,
+        shallow_cpu->j,
+        d_cscVal,
+        d_cscColPtr,
+        d_cscRowInd,
+        CUDA_R_32F,
+        CUSPARSE_ACTION_NUMERIC,
+        CUSPARSE_INDEX_BASE_ZERO,
+        CUSPARSE_CSR2CSC_ALG1,
+        &bufferSize);
     assert(status == CUSPARSE_STATUS_SUCCESS);
+
+    if (bufferSize > 0) {
+        assert(cudaMalloc(&dBuffer, bufferSize) == cudaSuccess);
+    }
+
+    status = cusparseCsr2cscEx2(
+        handle,
+        shallow_cpu->rows,
+        shallow_cpu->cols,
+        shallow_cpu->nnz,
+        shallow_cpu->val,
+        shallow_cpu->i,
+        shallow_cpu->j,
+        d_cscVal,
+        d_cscColPtr,
+        d_cscRowInd,
+        CUDA_R_32F,
+        CUSPARSE_ACTION_NUMERIC,
+        CUSPARSE_INDEX_BASE_ZERO,
+        CUSPARSE_CSR2CSC_ALG1,
+        dBuffer);
+    assert(status == CUSPARSE_STATUS_SUCCESS);
+
+    if (dBuffer) {
+        cudaFree(dBuffer);
+    }
 
     shallow_cpu_csc->rows = shallow_cpu->cols;
     shallow_cpu_csc->cols = shallow_cpu->rows;
-    shallow_cpu_csc->nnz = shallow_cpu->nnz;
-    shallow_cpu_csc->j = new_i;
-    shallow_cpu_csc->i = new_j;
-    shallow_cpu_csc->val = new_val;
+    shallow_cpu_csc->nnz  = shallow_cpu->nnz;
+    shallow_cpu_csc->j    = d_cscColPtr;
+    shallow_cpu_csc->i    = d_cscRowInd;
+    shallow_cpu_csc->val  = d_cscVal;
 
-    MatrixCSC * to_return = shallowCopyMatrixCSCCPUtoGPU(shallow_cpu_csc);
+    free(shallow_cpu);
+
+    MatrixCSC* to_return = shallowCopyMatrixCSCCPUtoGPU(shallow_cpu_csc);
     free(shallow_cpu_csc);
+
     return to_return;
 }
 
