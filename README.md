@@ -11,6 +11,8 @@ Steps to run:
 
 2) `./run.sh matrixname kappatg npass tou`
 Here the matrixname should be present in the matrices directory in the .mtx (matrix market) format. kappatg, npass and tou are the parameters given in the paper.
+
+
 ## System Information\n\n```\nLinux instance-20250609-144523 6.11.0-1015-gcp #15~24.04.1-Ubuntu SMP Thu Apr 24 20:41:05 UTC 2025 x86_64 x86_64 x86_64 GNU/Linux\n```\n\n## CUDA Information\n\n```\nnvcc: NVIDIA (R) Cuda compiler driver
 Copyright (c) 2005-2023 NVIDIA Corporation
 Built on Fri_Jan__6_16:45:21_PST_2023
