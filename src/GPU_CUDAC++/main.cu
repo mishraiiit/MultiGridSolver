@@ -176,7 +176,7 @@ int main(int argc, char * argv[]) {
             free(temp_bfs);
         #endif
 
-        #ifdef defined(DEBUG) && defined(AGGREGATION_WORK_EFFICIENT)
+        #if defined(DEBUG) && defined(AGGREGATION_WORK_EFFICIENT)
             printf("PASS %d\n", pass);
             printf("Row ptr distance CSR matrix\n");
             for(int row = 0; row < distance_csr->rows + 1; row++) {
@@ -184,7 +184,7 @@ int main(int argc, char * argv[]) {
             }
         #endif
 
-        #ifdef defined(DEBUG) && defined(AGGREGATION_WORK_EFFICIENT)
+        #if defined(DEBUG) && defined(AGGREGATION_WORK_EFFICIENT)
             printf("PASS %d\n", pass);
             printf("Level distance CSR\n");
             printf("Rows : %d, Cols : %d, Nnz : %d\n", distance_csr->rows, distance_csr->cols, distance_csr->nnz);
