@@ -579,49 +579,51 @@ MatrixCSR* spmatrixmult_cudaSparse(MatrixCSR* a, MatrixCSR* b, cusparseHandle_t&
         CUSPARSE_INDEX_32I, CUSPARSE_INDEX_32I,
         CUSPARSE_INDEX_BASE_ZERO, CUDA_R_32F) == CUSPARSE_STATUS_SUCCESS);
 
+    // Create SpGEMM descriptor
+    cusparseSpGEMMDescr_t spgemmDesc;
+    assert(cusparseSpGEMM_createDescr(&spgemmDesc) == CUSPARSE_STATUS_SUCCESS);
+
     // Determine buffer sizes and allocate workspace
     size_t bufferSize1 = 0;
     void*  dBuffer1    = NULL;
     assert(cusparseSpGEMM_workEstimation(
         handle, CUSPARSE_OPERATION_NON_TRANSPOSE, CUSPARSE_OPERATION_NON_TRANSPOSE,
         &alpha, matA, matB, &beta, matC, CUDA_R_32F,
-        CUSPARSE_SPGEMM_DEFAULT, &bufferSize1, NULL) == CUSPARSE_STATUS_SUCCESS);
+        CUSPARSE_SPGEMM_DEFAULT, spgemmDesc, &bufferSize1, NULL) == CUSPARSE_STATUS_SUCCESS);
     assert(cudaMalloc(&dBuffer1, bufferSize1) == cudaSuccess);
+
+    // Perform the work estimation with allocated buffer
+    assert(cusparseSpGEMM_workEstimation(
+        handle, CUSPARSE_OPERATION_NON_TRANSPOSE, CUSPARSE_OPERATION_NON_TRANSPOSE,
+        &alpha, matA, matB, &beta, matC, CUDA_R_32F,
+        CUSPARSE_SPGEMM_DEFAULT, spgemmDesc, &bufferSize1, dBuffer1) == CUSPARSE_STATUS_SUCCESS);
 
     // Compute the NNZ of C and its row pointers
     assert(cusparseSpGEMM_compute(
         handle, CUSPARSE_OPERATION_NON_TRANSPOSE, CUSPARSE_OPERATION_NON_TRANSPOSE,
         &alpha, matA, matB, &beta, matC, CUDA_R_32F,
-        CUSPARSE_SPGEMM_DEFAULT, &bufferSize1, dBuffer1) == CUSPARSE_STATUS_SUCCESS);
+        CUSPARSE_SPGEMM_DEFAULT, spgemmDesc, &bufferSize1, dBuffer1) == CUSPARSE_STATUS_SUCCESS);
 
-    // Get the size and row pointers of C from its descriptor
+    // Get the size of C from its descriptor
     int64_t c_rows, c_cols, c_nnz;
-    int* d_csrRowPtrC;
     assert(cusparseSpMatGetSize(matC, &c_rows, &c_cols, &c_nnz) == CUSPARSE_STATUS_SUCCESS);
-    assert(cusparseCsrGet(matC, NULL, NULL, NULL, (void**)&d_csrRowPtrC, NULL, NULL, NULL, NULL, NULL) == CUSPARSE_STATUS_SUCCESS);
     
-    // Allocate memory for C's column indices and values
+    // Allocate memory for C's CSR arrays
+    int*   d_csrRowPtrC;
     int*   d_csrColIndC;
     float* d_csrValC;
+    assert(cudaMalloc((void**)&d_csrRowPtrC, (c_rows + 1) * sizeof(int)) == cudaSuccess);
     assert(cudaMalloc((void**)&d_csrColIndC, c_nnz * sizeof(int))   == cudaSuccess);
     assert(cudaMalloc((void**)&d_csrValC,   c_nnz * sizeof(float)) == cudaSuccess);
     
     // Update the C descriptor with the newly allocated pointers
     assert(cusparseCsrSetPointers(matC, d_csrRowPtrC, d_csrColIndC, d_csrValC) == CUSPARSE_STATUS_SUCCESS);
 
-    // Re-run the computation phase to compute C's column indices and values
-    size_t bufferSize2 = 0;
-    void*  dBuffer2    = NULL;
-    assert(cusparseSpGEMM_workEstimation(
+    // Copy the result to the output matrix
+    assert(cusparseSpGEMM_copy(
         handle, CUSPARSE_OPERATION_NON_TRANSPOSE, CUSPARSE_OPERATION_NON_TRANSPOSE,
         &alpha, matA, matB, &beta, matC, CUDA_R_32F,
-        CUSPARSE_SPGEMM_DEFAULT, &bufferSize2, NULL) == CUSPARSE_STATUS_SUCCESS);
-    assert(cudaMalloc(&dBuffer2, bufferSize2) == cudaSuccess);
-
-    assert(cusparseSpGEMM_compute(
-        handle, CUSPARSE_OPERATION_NON_TRANSPOSE, CUSPARSE_OPERATION_NON_TRANSPOSE,
-        &alpha, matA, matB, &beta, matC, CUDA_R_32F,
-        CUSPARSE_SPGEMM_DEFAULT, &bufferSize2, dBuffer2) == CUSPARSE_STATUS_SUCCESS);
+        CUSPARSE_SPGEMM_DEFAULT, spgemmDesc) == CUSPARSE_STATUS_SUCCESS);
 
     // Create the final output matrix struct
     MatrixCSR* shallow_c = (MatrixCSR*) malloc(sizeof(MatrixCSR));
@@ -640,8 +642,8 @@ MatrixCSR* spmatrixmult_cudaSparse(MatrixCSR* a, MatrixCSR* b, cusparseHandle_t&
     free(shallow_c);
     
     cudaFree(dBuffer1);
-    cudaFree(dBuffer2);
     
+    cusparseSpGEMM_destroyDescr(spgemmDesc);
     cusparseDestroySpMat(matA);
     cusparseDestroySpMat(matB);
     cusparseDestroySpMat(matC);
