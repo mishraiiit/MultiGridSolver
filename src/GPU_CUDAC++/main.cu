@@ -15,6 +15,7 @@
 #include "PrefixSum.cu"
 #include <cusparse.h>
 #include <string>
+#include <vector>
 #include <stdlib.h>
 
 int main(int argc, char * argv[]) {
