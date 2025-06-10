@@ -81,6 +81,9 @@ struct MatrixCSC {
 
 
 std::string itoa(int number) {
+    if (number == 0) {
+        return "0";
+    }
     std::string ret;
     while(number != 0) {
         ret = ((char)('0' + (number % 10))) + ret;
@@ -412,6 +415,8 @@ MatrixCSR * readMatrixCPUMemoryCSR(std::string filename) {
         matrix_data[m - 1].push_back({n - 1, data});
     }
 
+
+
     for(int i = 0; i < M; i++) {
         std::sort(matrix_data[i].begin(), matrix_data[i].end());
         matrix_csr->i[i] = filled;
@@ -646,7 +651,7 @@ MatrixCSC * readMatrixGPUMemoryCSC(std::string filename) {
     float * device_val;
 
     cudaMalloc(&device_i, sizeof(int) * matrix_csc_cpu->nnz);
-    cudaMalloc(&device_j, sizeof(int) * matrix_csc_cpu->nnz);
+    cudaMalloc(&device_j, sizeof(int) * (matrix_csc_cpu->cols + 1));
     cudaMalloc(&device_val, sizeof(float) * matrix_csc_cpu->nnz);
 
     cudaMemcpy(device_i, matrix_csc_cpu->i,

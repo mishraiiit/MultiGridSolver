@@ -55,8 +55,8 @@ int main(int argc, char * argv[]) {
     MatrixCSR * P_cumm = NULL; // output will be in this.
     std::string filename = "../../matrices/" + matrixname + ".mtx";
 
-    auto A_CSRCPU = readMatrixCPUMemoryCSR(filename);
-    auto A_CSR = deepCopyMatrixCSRCPUtoGPU(A_CSRCPU);
+    auto A_CSRCPU = readMatrixCPUMemoryCSR(filename); // CSR, CPU
+    auto A_CSR = deepCopyMatrixCSRCPUtoGPU(A_CSRCPU); // CSR, GPU
 
     readtime.toc();
 

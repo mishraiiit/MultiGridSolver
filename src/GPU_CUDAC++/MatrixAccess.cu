@@ -30,8 +30,9 @@ __host__ __device__ float getElementMatrixCSR(MatrixCSR * matrix, int i, int j) 
     int r = matrix->i[i + 1];
     if(l == r) return 0.0;
 
+    int boundary = r;
     while(l != r) {
-        int mid = (l + r) / 2;
+        int mid = l + (r - l) / 2;
         if(matrix->j[mid] < j) {
             l = mid + 1;
         } else {
@@ -39,7 +40,7 @@ __host__ __device__ float getElementMatrixCSR(MatrixCSR * matrix, int i, int j) 
         }
     }
 
-    if(matrix->j[l] == j)
+    if(l < boundary && matrix->j[l] == j)
         return matrix->val[l];
     else
         return 0.0;
@@ -67,8 +68,9 @@ __host__ __device__ float getElementMatrixCSC(MatrixCSC * matrix, int i, int j) 
     int r = matrix->j[j + 1];
     if(l == r) return 0.0;
 
+    int boundary = r;
     while(l != r) {
-        int mid = (l + r) / 2;
+        int mid = l + (r - l) / 2;
         if(matrix->i[mid] < i) {
             l = mid + 1;
         } else {
@@ -76,7 +78,7 @@ __host__ __device__ float getElementMatrixCSC(MatrixCSC * matrix, int i, int j) 
         }
     }
 
-    if(matrix->i[l] == i)
+    if(l < boundary && matrix->i[l] == i)
         return matrix->val[l];
     else
         return 0.0;

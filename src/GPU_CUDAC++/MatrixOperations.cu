@@ -9,6 +9,26 @@
 #include "MatrixIO.cu"
 #include "GPUDebug.cu"
 #include <cusparse.h>
+#include <cstdio>
+#include <cstdlib>
+
+// Error checking macros
+#define CHECK_CUDA(call) do { \
+    cudaError_t cuda_check_error = call; \
+    if (cuda_check_error != cudaSuccess) { \
+        fprintf(stderr, "CUDA error at %s:%d - %s\n", __FILE__, __LINE__, \
+                cudaGetErrorString(cuda_check_error)); \
+        exit(1); \
+    } \
+} while(0)
+
+#define CHECK_CUSPARSE(call) do { \
+    cusparseStatus_t cusparse_check_status = call; \
+    if (cusparse_check_status != CUSPARSE_STATUS_SUCCESS) { \
+        fprintf(stderr, "cuSPARSE error at %s:%d\n", __FILE__, __LINE__); \
+        exit(1); \
+    } \
+} while(0)
 
 /*
     Description : It takes a matrix in CSR format and returns it's transpose.
@@ -76,6 +96,7 @@ MatrixCSR * transposeCSRCPU(const MatrixCSR * const matrix) {
 */
 
 void printCSRCPU(const MatrixCSR * const matrix) {
+    std::cout << "rows: " << matrix->rows << " cols: " << matrix->cols << " nnz: " << matrix->nnz << std::endl;
     for(int i = 0; i < matrix->rows; i++) {
         for(int j = matrix->i[i]; j < matrix->i[i + 1]; j++) {
             std::cout << i + 1 << " " << matrix->j[j] + 1 << " " << \
@@ -211,7 +232,7 @@ MatrixCSR * deepCopyMatrixCSRGPUtoGPU(const MatrixCSR * const gpu_matrix) {
     @author : mishraiiit
 */
 
-MatrixCSC * deepCopyMatrixCSCRGPUtoCPU(const MatrixCSC * const gpu_matrix) {
+MatrixCSC * deepCopyMatrixCSCGPUtoCPU(const MatrixCSC * const gpu_matrix) {
     MatrixCSC * cpu_matrix = (MatrixCSC *) malloc(sizeof(MatrixCSC));
     assert(cudaMemcpy(cpu_matrix, gpu_matrix,
         sizeof(MatrixCSC), cudaMemcpyDeviceToHost) == cudaSuccess);
@@ -220,10 +241,10 @@ MatrixCSC * deepCopyMatrixCSCRGPUtoCPU(const MatrixCSC * const gpu_matrix) {
     float * cpu_val = (float *) malloc(sizeof(float) * (cpu_matrix->nnz));
 
     assert(cudaMemcpy(cpu_i, cpu_matrix->i,
-        sizeof(int) * (cpu_matrix->rows + 1),
+        sizeof(int) * (cpu_matrix->nnz),
         cudaMemcpyDeviceToHost) == cudaSuccess);
     assert(cudaMemcpy(cpu_j, cpu_matrix->j,
-        sizeof(int) * (cpu_matrix->nnz),
+        sizeof(int) * (cpu_matrix->cols + 1),
         cudaMemcpyDeviceToHost) == cudaSuccess);
     assert(cudaMemcpy(cpu_val, cpu_matrix->val,
         sizeof(float) * (cpu_matrix->nnz),
@@ -366,74 +387,74 @@ MatrixCSC * shallowCopyMatrixCSCCPUtoGPU(const MatrixCSC * const my_cpu) {
 */
 MatrixCSR * transposeCSRGPU_cudaSparse(MatrixCSR * matrix_gpu, cusparseHandle_t & handle) {
 
-
-    int rows = matrix_gpu->rows;
-    int cols = matrix_gpu->cols;
-    int nnz = matrix_gpu->nnz;
+    MatrixCSR * shallow_cpu = shallowCopyMatrixCSRGPUtoCPU(matrix_gpu);
 
     int * new_i;
     int * new_j;
     float * new_val;
 
-    assert(cudaMalloc(&new_i, sizeof(int) * (cols + 1)) == cudaSuccess);
-    assert(cudaMalloc(&new_j, sizeof(int) * nnz) == cudaSuccess);
-    assert(cudaMalloc(&new_val, sizeof(float) * nnz) == cudaSuccess);
+    assert(cudaMalloc(&new_i,
+        sizeof(int) * (shallow_cpu->cols + 1)) == cudaSuccess);
+    assert(cudaMalloc(&new_j,
+        sizeof(int) * (shallow_cpu->nnz)) == cudaSuccess);
+    assert(cudaMalloc(&new_val,
+        sizeof(float) * (shallow_cpu->nnz)) == cudaSuccess);
 
+
+    void* d_buffer = nullptr;
     size_t bufferSize = 0;
+
     cusparseStatus_t status = cusparseCsr2cscEx2_bufferSize(
         handle,
-        rows,
-        cols,
-        nnz,
-        matrix_gpu->val,
-        matrix_gpu->i,
-        matrix_gpu->j,
-        new_val,
-        new_i,
-        new_j,
+        shallow_cpu->rows, // rows
+        shallow_cpu->cols, // cols
+        shallow_cpu->nnz,  // nnz
+        shallow_cpu->val,  // nnz
+        shallow_cpu->i,    // rows+1
+        shallow_cpu->j,    // nnz
+        new_val,           // nnz
+        new_i,             // cols+1
+        new_j,             // nnz
         CUDA_R_32F,
         CUSPARSE_ACTION_NUMERIC,
         CUSPARSE_INDEX_BASE_ZERO,
         CUSPARSE_CSR2CSC_ALG1,
-        &bufferSize
-    );
+        &bufferSize);
     assert(status == CUSPARSE_STATUS_SUCCESS);
 
-    void * pBuffer = nullptr;
-    assert(cudaMalloc(&pBuffer, bufferSize) == cudaSuccess);
 
-    // Perform the CSR to CSC conversion
+    assert(cudaMalloc(&d_buffer, bufferSize) == cudaSuccess);
+
     status = cusparseCsr2cscEx2(
         handle,
-        rows,
-        cols,
-        nnz,
-        matrix_gpu->val,
-        matrix_gpu->i,
-        matrix_gpu->j,
-        new_val,
-        new_i,
-        new_j,
+        shallow_cpu->rows, // rows
+        shallow_cpu->cols, // cols
+        shallow_cpu->nnz,  // nnz
+        shallow_cpu->val,  // nnz
+        shallow_cpu->i,    // rows+1
+        shallow_cpu->j,    // nnz
+        new_val,           // nnz
+        new_i,             // cols+1
+        new_j,             // nnz
         CUDA_R_32F,
         CUSPARSE_ACTION_NUMERIC,
         CUSPARSE_INDEX_BASE_ZERO,
         CUSPARSE_CSR2CSC_ALG1,
-        pBuffer
-    );
+        d_buffer);
     assert(status == CUSPARSE_STATUS_SUCCESS);
 
-    cudaFree(pBuffer);
+    swap_variables(shallow_cpu->rows, shallow_cpu->cols);
 
-    MatrixCSR * transposed_matrix_gpu = new MatrixCSR();
-    transposed_matrix_gpu->rows = cols;
-    transposed_matrix_gpu->cols = rows;
-    transposed_matrix_gpu->nnz = nnz;
-    transposed_matrix_gpu->i = new_i;
-    transposed_matrix_gpu->j = new_j;
-    transposed_matrix_gpu->val = new_val;
 
-    return transposed_matrix_gpu;
+    shallow_cpu->i = new_i;
+    shallow_cpu->j = new_j;
+    shallow_cpu->val = new_val;
+
+    MatrixCSR * to_return = shallowCopyMatrixCSRCPUtoGPU(shallow_cpu);
+    free(shallow_cpu);
+    return to_return;
 }
+
 
 
 /*
@@ -449,33 +470,37 @@ MatrixCSR * transposeCSRGPU_cudaSparse(MatrixCSR * matrix_gpu, cusparseHandle_t 
     @author : mishraiiit
 */
 
-MatrixCSC* convertCSRGPU_cudaSparse(MatrixCSR* matrix_gpu, cusparseHandle_t& handle) {
+MatrixCSC * convertCSRGPU_cudaSparse(MatrixCSR * matrix_gpu, cusparseHandle_t & handle) {
 
-    MatrixCSR* shallow_cpu = shallowCopyMatrixCSRGPUtoCPU(matrix_gpu);
-    MatrixCSC* shallow_cpu_csc = (MatrixCSC*)malloc(sizeof(MatrixCSC));
+    MatrixCSR * shallow_cpu = shallowCopyMatrixCSRGPUtoCPU(matrix_gpu);
+    MatrixCSC * shallow_cpu_csc = (MatrixCSC *) malloc(sizeof(MatrixCSC));
 
-    int*   d_cscColPtr;
-    int*   d_cscRowInd;
-    float* d_cscVal;
+    int * new_i;
+    int * new_j;
+    float * new_val;
 
-    assert(cudaMalloc(&d_cscColPtr, sizeof(int)   * (shallow_cpu->cols + 1)) == cudaSuccess);
-    assert(cudaMalloc(&d_cscRowInd, sizeof(int)   * (shallow_cpu->nnz))      == cudaSuccess);
-    assert(cudaMalloc(&d_cscVal,   sizeof(float) * (shallow_cpu->nnz))      == cudaSuccess);
+    assert(cudaMalloc(&new_i,
+        sizeof(int) * (shallow_cpu->nnz)) == cudaSuccess);
+    assert(cudaMalloc(&new_j,
+        sizeof(int) * (shallow_cpu->cols + 1)) == cudaSuccess);
+    assert(cudaMalloc(&new_val,
+        sizeof(float) * (shallow_cpu->nnz)) == cudaSuccess);
 
-    size_t bufferSize = 0;
-    void*  dBuffer    = NULL;
     
+    void* d_buffer = nullptr;
+    size_t bufferSize = 0;
+
     cusparseStatus_t status = cusparseCsr2cscEx2_bufferSize(
         handle,
-        shallow_cpu->rows,
-        shallow_cpu->cols,
-        shallow_cpu->nnz,
-        shallow_cpu->val,
-        shallow_cpu->i,
-        shallow_cpu->j,
-        d_cscVal,
-        d_cscColPtr,
-        d_cscRowInd,
+        shallow_cpu->rows, // rows
+        shallow_cpu->cols, // cols
+        shallow_cpu->nnz,  // nnz
+        shallow_cpu->val,  // nnz
+        shallow_cpu->i,    // rows+1
+        shallow_cpu->j,    // nnz
+        new_val,           // nnz
+        new_j,             // cols+1
+        new_i,             // nnz
         CUDA_R_32F,
         CUSPARSE_ACTION_NUMERIC,
         CUSPARSE_INDEX_BASE_ZERO,
@@ -483,174 +508,242 @@ MatrixCSC* convertCSRGPU_cudaSparse(MatrixCSR* matrix_gpu, cusparseHandle_t& han
         &bufferSize);
     assert(status == CUSPARSE_STATUS_SUCCESS);
 
-    if (bufferSize > 0) {
-        assert(cudaMalloc(&dBuffer, bufferSize) == cudaSuccess);
-    }
+
+    assert(cudaMalloc(&d_buffer, bufferSize) == cudaSuccess);
 
     status = cusparseCsr2cscEx2(
         handle,
-        shallow_cpu->rows,
-        shallow_cpu->cols,
-        shallow_cpu->nnz,
-        shallow_cpu->val,
-        shallow_cpu->i,
-        shallow_cpu->j,
-        d_cscVal,
-        d_cscColPtr,
-        d_cscRowInd,
+        shallow_cpu->rows, // rows
+        shallow_cpu->cols, // cols
+        shallow_cpu->nnz,  // nnz
+        shallow_cpu->val,  // nnz
+        shallow_cpu->i,    // rows+1
+        shallow_cpu->j,    // nnz
+        new_val,           // nnz
+        new_j,             // cols+1
+        new_i,             // nnz
         CUDA_R_32F,
         CUSPARSE_ACTION_NUMERIC,
         CUSPARSE_INDEX_BASE_ZERO,
         CUSPARSE_CSR2CSC_ALG1,
-        dBuffer);
+        d_buffer);
     assert(status == CUSPARSE_STATUS_SUCCESS);
 
-    if (dBuffer) {
-        cudaFree(dBuffer);
-    }
+    cudaFree(d_buffer);
 
-    shallow_cpu_csc->rows = shallow_cpu->cols;
-    shallow_cpu_csc->cols = shallow_cpu->rows;
-    shallow_cpu_csc->nnz  = shallow_cpu->nnz;
-    shallow_cpu_csc->j    = d_cscColPtr;
-    shallow_cpu_csc->i    = d_cscRowInd;
-    shallow_cpu_csc->val  = d_cscVal;
+    shallow_cpu_csc->rows = shallow_cpu->rows;
+    shallow_cpu_csc->cols = shallow_cpu->cols;
+    shallow_cpu_csc->nnz = shallow_cpu->nnz;
+    shallow_cpu_csc->i = new_i;
+    shallow_cpu_csc->j = new_j;
+    shallow_cpu_csc->val = new_val;
 
-    free(shallow_cpu);
-
-    MatrixCSC* to_return = shallowCopyMatrixCSCCPUtoGPU(shallow_cpu_csc);
+    MatrixCSC * to_return = shallowCopyMatrixCSCCPUtoGPU(shallow_cpu_csc);
     free(shallow_cpu_csc);
-
     return to_return;
 }
 
 
 /*
-    Description : It takes two sparse matrices on GPU and multiplies them.
+    Description : It takes a matrix in CSC which is on GPU and returns it's
+    corresponding CSR format on GPU.
 
     Parameters : 
-        MatrixCSR * A : Matrix in CSR format on GPU.
-        MatrixCSR * B : Matrix in CSR format on GPU.
+        MatrixCSC * matrix : Matrix in CSC format on GPU.
         cusparseHandle_t & handle : cudaSparse handle.
 
-    Returns : Sparse matrix C = A * B
+    Returns : The CSR format of the given matrix on GPU.
 
     @author : mishraiiit
 */
 
-MatrixCSR* spmatrixmult_cudaSparse(MatrixCSR* a, MatrixCSR* b, cusparseHandle_t& handle) {
+MatrixCSR * convertCSCGPU_cudaSparse(MatrixCSC * matrix_gpu, cusparseHandle_t & handle) {
 
-    // Create host-side shallow copies to access matrix metadata (dims, nnz)
-    // and GPU data pointers. The actual matrix data remains on the GPU.
+    MatrixCSC * shallow_cpu = shallowCopyMatrixCSCGPUtoCPU(matrix_gpu);
+    MatrixCSR * shallow_cpu_csr = (MatrixCSR *) malloc(sizeof(MatrixCSR));
+
+    int * new_i;
+    int * new_j;
+    float * new_val;
+
+    assert(cudaMalloc(&new_i,
+        sizeof(int) * (shallow_cpu->rows + 1)) == cudaSuccess);
+    assert(cudaMalloc(&new_j,
+        sizeof(int) * (shallow_cpu->nnz)) == cudaSuccess);
+    assert(cudaMalloc(&new_val,
+        sizeof(float) * (shallow_cpu->nnz)) == cudaSuccess);
+
+    size_t bufferSize = 0;
+    void* d_buffer = nullptr;
+
+    cusparseStatus_t status = cusparseCsr2cscEx2_bufferSize(
+        handle,
+        shallow_cpu->rows, // rows
+        shallow_cpu->cols, // cols
+        shallow_cpu->nnz,  // nnz
+        shallow_cpu->val,  // nnz
+        shallow_cpu->j,    // cols+1
+        shallow_cpu->i,    // nnz
+        new_val,           // nnz
+        new_i,             // rows+1
+        new_j,             // nnz
+        CUDA_R_32F,
+        CUSPARSE_ACTION_NUMERIC,
+        CUSPARSE_INDEX_BASE_ZERO,
+        CUSPARSE_CSR2CSC_ALG1,
+        &bufferSize);
+    assert(status == CUSPARSE_STATUS_SUCCESS);
+
+    assert(cudaMalloc(&d_buffer, bufferSize) == cudaSuccess);
+
+    status = cusparseCsr2cscEx2(
+        handle,
+        shallow_cpu->rows, // rows
+        shallow_cpu->cols, // cols
+        shallow_cpu->nnz,  // nnz
+        shallow_cpu->val,  // nnz
+        shallow_cpu->j,    // cols+1
+        shallow_cpu->i,    // nnz
+        new_val,           // nnz
+        new_i,             // rows+1
+        new_j,             // nnz
+        CUDA_R_32F,
+        CUSPARSE_ACTION_NUMERIC,
+        CUSPARSE_INDEX_BASE_ZERO,
+        CUSPARSE_CSR2CSC_ALG1,
+        d_buffer);
+    assert(status == CUSPARSE_STATUS_SUCCESS);
+
+    cudaFree(d_buffer);
+
+    shallow_cpu_csr->rows = shallow_cpu->rows;
+    shallow_cpu_csr->cols = shallow_cpu->cols;
+    shallow_cpu_csr->nnz = shallow_cpu->nnz;
+    shallow_cpu_csr->i = new_i;
+    shallow_cpu_csr->j = new_j;
+    shallow_cpu_csr->val = new_val;
+
+    MatrixCSR * to_return = shallowCopyMatrixCSRCPUtoGPU(shallow_cpu_csr);
+    free(shallow_cpu_csr);
+    return to_return;
+}
+
+/*
+    Description: It takes two sparse matrices on GPU and multiplies them using the modern cuSPARSE SpGEMM API.
+
+    Parameters:
+        MatrixCSR * A: Matrix in CSR format on GPU.
+        MatrixCSR * B: Matrix in CSR format on GPU.
+        cusparseHandle_t& handle: cuSPARSE handle.
+
+    Returns: Sparse matrix C = A * B on the GPU.
+
+    @author: mishraiiit (Corrected by Gemini)
+*/
+MatrixCSR* spmatrixmult_cudaSparse(MatrixCSR* a, MatrixCSR* b, cusparseHandle_t& handle) {
     MatrixCSR* shallow_a = shallowCopyMatrixCSRGPUtoCPU(a);
     MatrixCSR* shallow_b = shallowCopyMatrixCSRGPUtoCPU(b);
 
-    // SpGEMM computes C = alpha * op(A) * op(B) + beta * D.
-    // We want C = A * B, so alpha = 1.0, beta = 0.0, and D can be null.
     float alpha = 1.0f;
     float beta  = 0.0f;
-
+    cusparseOperation_t opA = CUSPARSE_OPERATION_NON_TRANSPOSE;
+    cusparseOperation_t opB = CUSPARSE_OPERATION_NON_TRANSPOSE;
+    cudaDataType        computeType = CUDA_R_32F;
 
     cusparseSpMatDescr_t matA, matB, matC;
     
-    // Create descriptor for matrix A
-    assert(cusparseCreateCsr(
+    CHECK_CUSPARSE(cusparseCreateCsr(
         &matA, shallow_a->rows, shallow_a->cols, shallow_a->nnz,
-        shallow_a->i,   // CSR row offsets
-        shallow_a->j,   // CSR column indices
-        shallow_a->val, // CSR values
+        shallow_a->i,
+        shallow_a->j,
+        shallow_a->val,
         CUSPARSE_INDEX_32I, CUSPARSE_INDEX_32I,
-        CUSPARSE_INDEX_BASE_ZERO, CUDA_R_32F) == CUSPARSE_STATUS_SUCCESS);
+        CUSPARSE_INDEX_BASE_ZERO, CUDA_R_32F));
 
-    // Create descriptor for matrix B
-    assert(cusparseCreateCsr(
+    CHECK_CUSPARSE(cusparseCreateCsr(
         &matB, shallow_b->rows, shallow_b->cols, shallow_b->nnz,
-        shallow_b->i,   // CSR row offsets
-        shallow_b->j,   // CSR column indices
-        shallow_b->val, // CSR values
+        shallow_b->i,
+        shallow_b->j, 
+        shallow_b->val,
         CUSPARSE_INDEX_32I, CUSPARSE_INDEX_32I,
-        CUSPARSE_INDEX_BASE_ZERO, CUDA_R_32F) == CUSPARSE_STATUS_SUCCESS);
+        CUSPARSE_INDEX_BASE_ZERO, CUDA_R_32F));
 
-    // Create descriptor for the result matrix C
-    // Its dimensions are (A's rows, B's cols). Pointers are NULL initially.
-    assert(cusparseCreateCsr(
-        &matC, shallow_a->rows, shallow_b->cols, 0, // nnz is unknown, set to 0
-        NULL, NULL, NULL,
+    int* d_csrRowPtrC;
+    CHECK_CUDA(cudaMalloc((void**)&d_csrRowPtrC, (shallow_a->rows + 1) * sizeof(int)));
+
+    CHECK_CUSPARSE(cusparseCreateCsr(
+        &matC, shallow_a->rows, shallow_b->cols, 0,
+        d_csrRowPtrC, NULL, NULL,
         CUSPARSE_INDEX_32I, CUSPARSE_INDEX_32I,
-        CUSPARSE_INDEX_BASE_ZERO, CUDA_R_32F) == CUSPARSE_STATUS_SUCCESS);
+        CUSPARSE_INDEX_BASE_ZERO, CUDA_R_32F));
 
-    // Create SpGEMM descriptor
     cusparseSpGEMMDescr_t spgemmDesc;
-    assert(cusparseSpGEMM_createDescr(&spgemmDesc) == CUSPARSE_STATUS_SUCCESS);
+    CHECK_CUSPARSE(cusparseSpGEMM_createDescr(&spgemmDesc));
 
-    // Determine buffer sizes and allocate workspace
-    size_t bufferSize1 = 0;
     void*  dBuffer1    = NULL;
-    assert(cusparseSpGEMM_workEstimation(
-        handle, CUSPARSE_OPERATION_NON_TRANSPOSE, CUSPARSE_OPERATION_NON_TRANSPOSE,
-        &alpha, matA, matB, &beta, matC, CUDA_R_32F,
-        CUSPARSE_SPGEMM_DEFAULT, spgemmDesc, &bufferSize1, NULL) == CUSPARSE_STATUS_SUCCESS);
-    assert(cudaMalloc(&dBuffer1, bufferSize1) == cudaSuccess);
-
-    // Perform the work estimation with allocated buffer
-    assert(cusparseSpGEMM_workEstimation(
-        handle, CUSPARSE_OPERATION_NON_TRANSPOSE, CUSPARSE_OPERATION_NON_TRANSPOSE,
-        &alpha, matA, matB, &beta, matC, CUDA_R_32F,
-        CUSPARSE_SPGEMM_DEFAULT, spgemmDesc, &bufferSize1, dBuffer1) == CUSPARSE_STATUS_SUCCESS);
-
-    // Compute the NNZ of C and its row pointers
-    assert(cusparseSpGEMM_compute(
-        handle, CUSPARSE_OPERATION_NON_TRANSPOSE, CUSPARSE_OPERATION_NON_TRANSPOSE,
-        &alpha, matA, matB, &beta, matC, CUDA_R_32F,
-        CUSPARSE_SPGEMM_DEFAULT, spgemmDesc, &bufferSize1, dBuffer1) == CUSPARSE_STATUS_SUCCESS);
-
-    // Get the size of C from its descriptor
-    int64_t c_rows, c_cols, c_nnz;
-    assert(cusparseSpMatGetSize(matC, &c_rows, &c_cols, &c_nnz) == CUSPARSE_STATUS_SUCCESS);
+    size_t bufferSize1 = 0;
+    CHECK_CUSPARSE(cusparseSpGEMM_workEstimation(
+        handle, opA, opB, &alpha, matA, matB, &beta, matC,
+        computeType, CUSPARSE_SPGEMM_DEFAULT, spgemmDesc, &bufferSize1, NULL));
+    CHECK_CUDA(cudaMalloc(&dBuffer1, bufferSize1));
     
-    // Allocate memory for C's CSR arrays
-    int*   d_csrRowPtrC;
+    CHECK_CUSPARSE(cusparseSpGEMM_workEstimation(
+        handle, opA, opB, &alpha, matA, matB, &beta, matC,
+        computeType, CUSPARSE_SPGEMM_DEFAULT, spgemmDesc, &bufferSize1, dBuffer1));
+
+
+    void*  dBuffer2    = NULL;
+    size_t bufferSize2 = 0;
+    CHECK_CUSPARSE(cusparseSpGEMM_compute(
+        handle, opA, opB, &alpha, matA, matB, &beta, matC,
+        computeType, CUSPARSE_SPGEMM_DEFAULT, spgemmDesc, &bufferSize2, NULL));
+    CHECK_CUDA(cudaMalloc(&dBuffer2, bufferSize2));
+
+    CHECK_CUSPARSE(cusparseSpGEMM_compute(
+        handle, opA, opB, &alpha, matA, matB, &beta, matC,
+        computeType, CUSPARSE_SPGEMM_DEFAULT, spgemmDesc, &bufferSize2, dBuffer2));
+
+    int64_t c_rows, c_cols, c_nnz;
+    CHECK_CUSPARSE(cusparseSpMatGetSize(matC, &c_rows, &c_cols, &c_nnz));
+    
     int*   d_csrColIndC;
     float* d_csrValC;
-    assert(cudaMalloc((void**)&d_csrRowPtrC, (c_rows + 1) * sizeof(int)) == cudaSuccess);
-    assert(cudaMalloc((void**)&d_csrColIndC, c_nnz * sizeof(int))   == cudaSuccess);
-    assert(cudaMalloc((void**)&d_csrValC,   c_nnz * sizeof(float)) == cudaSuccess);
+    CHECK_CUDA(cudaMalloc((void**)&d_csrColIndC, c_nnz * sizeof(int)));
+    CHECK_CUDA(cudaMalloc((void**)&d_csrValC,   c_nnz * sizeof(float)));
     
-    // Update the C descriptor with the newly allocated pointers
-    assert(cusparseCsrSetPointers(matC, d_csrRowPtrC, d_csrColIndC, d_csrValC) == CUSPARSE_STATUS_SUCCESS);
+    CHECK_CUSPARSE(cusparseCsrSetPointers(matC, d_csrRowPtrC, d_csrColIndC, d_csrValC));
 
-    // Copy the result to the output matrix
-    assert(cusparseSpGEMM_copy(
-        handle, CUSPARSE_OPERATION_NON_TRANSPOSE, CUSPARSE_OPERATION_NON_TRANSPOSE,
-        &alpha, matA, matB, &beta, matC, CUDA_R_32F,
-        CUSPARSE_SPGEMM_DEFAULT, spgemmDesc) == CUSPARSE_STATUS_SUCCESS);
+    CHECK_CUSPARSE(cusparseSpGEMM_copy(
+        handle, opA, opB, &alpha, matA, matB, &beta, matC,
+        computeType, CUSPARSE_SPGEMM_DEFAULT, spgemmDesc));
 
-    // Create the final output matrix struct
-    MatrixCSR* shallow_c = (MatrixCSR*) malloc(sizeof(MatrixCSR));
-    shallow_c->rows = c_rows;
-    shallow_c->cols = c_cols;
-    shallow_c->nnz  = c_nnz;
-    shallow_c->i    = d_csrRowPtrC;
-    shallow_c->j    = d_csrColIndC;
-    shallow_c->val  = d_csrValC;
 
-    MatrixCSR* c = shallowCopyMatrixCSRCPUtoGPU(shallow_c);
+    MatrixCSR* c_device;
+    CHECK_CUDA(cudaMalloc((void**)&c_device, sizeof(MatrixCSR)));
 
-    // Clean up resources
+    MatrixCSR c_host;
+    c_host.rows = c_rows;
+    c_host.cols = c_cols;
+    c_host.nnz  = c_nnz;
+    c_host.i    = d_csrRowPtrC;
+    c_host.j    = d_csrColIndC;
+    c_host.val  = d_csrValC;
+
+    CHECK_CUDA(cudaMemcpy(c_device, &c_host, sizeof(MatrixCSR), cudaMemcpyHostToDevice));
+
     free(shallow_a);
     free(shallow_b);
-    free(shallow_c);
     
     cudaFree(dBuffer1);
+    cudaFree(dBuffer2);
     
     cusparseSpGEMM_destroyDescr(spgemmDesc);
     cusparseDestroySpMat(matA);
     cusparseDestroySpMat(matB);
     cusparseDestroySpMat(matC);
 
-    return c;
+    return c_device;
 }
-
 
 /*
     Description : Frees a sparse CSR Matrix on GPU.
