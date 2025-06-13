@@ -9,6 +9,10 @@
 #include <thrust/execution_policy.h>
 #include "GPUDebug.cu"
 
+
+// This is used in G0 computation in the research paper.
+// To form the set G0, we need to compute the sum of the absolute values of the elements in the row and column of the matrix (except the diagonal elements).
+// This stores whether the element is in G0 or not (in the hash table type structure, ising0[id] = 1 means the element is in G0).
 __global__ void computeRowColAbsSum(MatrixCSR * matrix_csr, MatrixCSC * matrix_csc, int * ising0, float ktg, int iteration) {
 
     int id = blockIdx.x * blockDim.x + threadIdx.x;
@@ -58,6 +62,8 @@ __global__ void computeRowColAbsSum(MatrixCSR * matrix_csr, MatrixCSC * matrix_c
         ising0[id] = 0;
 }
 
+// This is used in the computation of Si in the research paper.
+// Si[i] is the negative sum of the absolute values of the elements in the row and column of the matrix (except the diagonal elements) of the node i.
 __global__ void comptueSi(MatrixCSR * matrix_csr, MatrixCSC * matrix_csc, float * output) {
 int id = blockIdx.x * blockDim.x + threadIdx.x;
     if(id >= matrix_csr->rows)
@@ -101,48 +107,10 @@ int id = blockIdx.x * blockDim.x + threadIdx.x;
     output[id] = -ans;
 }
 
-__host__ void comptueSiHost(MatrixCSR * matrix_csr, MatrixCSC * matrix_csc, float * output) {    
-    for(int id = 0; id < matrix_csr->rows; id++) {
-
-        int row_start = matrix_csr->i[id];
-        int row_end = matrix_csr->i[id + 1];
-
-        int col_start = matrix_csc->j[id];
-        int col_end = matrix_csc->j[id + 1];
-
-        float ans = 0;
-        while(row_start < row_end || col_start < col_end) {
-            if(row_start < row_end && col_start < col_end) {
-                if(matrix_csr->j[row_start] < matrix_csc->i[col_start]) {
-                    if(matrix_csr->j[row_start] != id)
-                        ans += matrix_csr->val[row_start] / 2;
-                    row_start++;
-                } else if(matrix_csr->j[row_start] > matrix_csc->i[col_start]) {
-                    if(matrix_csc->i[col_start] != id)
-                        ans += matrix_csc->val[col_start] / 2;
-                    col_start++;
-                } else {
-                    if(matrix_csr->j[row_start] != id)
-                        ans += (matrix_csr->val[row_start] + matrix_csc->val[col_start]) / 2;
-                    row_start++;
-                    col_start++;
-                }
-            } 
-            else if(row_start < row_end) {
-                if(matrix_csr->j[row_start] != id)
-                    ans += matrix_csr->val[row_start] / 2;
-                row_start++;
-            } else {
-                if(matrix_csc->i[col_start] != id)
-                    ans += matrix_csc->val[col_start] / 2;
-                col_start++;
-            }
-        }
-
-        output[id] = -ans;
-    }
-}
-
+// This is used in the computation of the allowed pairs in the research paper.
+// muij is the function used to compute the allowed pairs.
+// muij(i, j) = 2 / (1/aii + 1/ajj) / ((- (aij + aji) / 2) + 1 / ( ( 1 / (aii - Si[i])) + (1 / (ajj - Si[j])) ))
+// We are looking for pairs (i, j) such that muij(i, j) <= ktg and such j for which j is minimum.
 __host__ __device__ float muij(int i, int j, MatrixCSR * matrix_csr, float * Si) {
     float aii = getElementMatrixCSR(matrix_csr, i, i);
     float ajj = getElementMatrixCSR(matrix_csr, j, j);
@@ -154,6 +122,14 @@ __host__ __device__ float muij(int i, int j, MatrixCSR * matrix_csr, float * Si)
     return num / den;
 }
 
+// This is used in the computation of the allowed pairs in the research paper.
+// We are looking for pairs (i, j) such that muij(i, j) <= ktg and such j for which j is minimum.
+// We sort the neighbour list of i based on the muij value.
+// We then mark the pairs (i, j) as allowed if muij(i, j) <= ktg and such j for which j is minimum.
+// The CSR matrix is esentially seen as a graph, represented as adjacent list (neighbour_list). We sort the CSR in place, so that
+// while aggregating, we can access the neighbour list in a sorted manner.
+// Since the graph is sparse, each element doesn't have many neighbours.
+// Allowed is an array of size neighbour_list->i[matrix->rows] (so nnz count) which tells whether the pair (i, j) is allowed or not.
 __global__ void sortNeighbourList(MatrixCSR * matrix, MatrixCSR * neighbour_list, float * Si, int * allowed, float ktg, int * ising0) {
     const int id = blockIdx.x * blockDim.x + threadIdx.x;
     if(id >= matrix->rows)
@@ -171,7 +147,7 @@ __global__ void sortNeighbourList(MatrixCSR * matrix, MatrixCSR * neighbour_list
         thrust::stable_sort(thrust::seq, neighbour_list->j + row_start, neighbour_list->j + row_end, l);
 
     #else
-
+        // This section is mostly here for debugging purposes.
         for(int i = row_start; i < row_end; i++) {
             for(int j = i + 1; j < row_end; j++) {
                 int id1 = neighbour_list->j[i];
@@ -194,6 +170,8 @@ __global__ void sortNeighbourList(MatrixCSR * matrix, MatrixCSR * neighbour_list
     }    
 }
 
+// This checks the condition from the research paper: aii - Si + ajj - Sj >= 0.
+// We access the matrix elements using the getElementMatrixCSR function (which uses a binary search to access the elements).
 __device__ int okay(int i, int j, MatrixCSR * matrix, float * Si) {
     return (getElementMatrixCSR(matrix, i, i) - Si[i] + getElementMatrixCSR(matrix, j, j) - Si[j] >= 0);
 }

@@ -233,6 +233,11 @@ __global__ void write_vertex_fronteir (int edge_fronteir_size, int * vertex_fron
 
 std::pair<int *, MatrixCSR *> bfs_work_efficient(int n, MatrixCSR * matrix_gpu, int * max_distance) {
     printInfo("Work efficient BFS running", 8);
+
+
+    MatrixCSR * matrix_metadata = shallowCopyMatrixCSRGPUtoCPU(matrix_gpu);
+
+
     int * vertex_fronteir;
     cudaMalloc(&vertex_fronteir, sizeof(int) * n);
 
@@ -240,7 +245,7 @@ std::pair<int *, MatrixCSR *> bfs_work_efficient(int n, MatrixCSR * matrix_gpu, 
     cudaMalloc(&visited_by, sizeof(int) * n);
     
     int * edge_fronteir;
-    cudaMalloc(&edge_fronteir, sizeof(int) * n);
+    cudaMalloc(&edge_fronteir, sizeof(int) * matrix_metadata->nnz);
 
     int * offsets;
     cudaMalloc(&offsets, sizeof(int) * n);
@@ -280,7 +285,7 @@ std::pair<int *, MatrixCSR *> bfs_work_efficient(int n, MatrixCSR * matrix_gpu, 
         write_sizes <<<blocks, threads >>> (vertex_fronteir_size, offsets, vertex_fronteir, matrix_gpu);
         prefixSumGPU(offsets, vertex_fronteir_size);
         cudaMemcpy(&edge_fronteir_size, offsets + vertex_fronteir_size - 1, sizeof(int), cudaMemcpyDeviceToHost);
-        assert(edge_fronteir_size < n);
+        assert(edge_fronteir_size < matrix_metadata->nnz);
         assert(edge_fronteir_size != 0);
         write_edge_fronteir <<<blocks, threads >>> (vertex_fronteir_size, offsets, matrix_gpu, edge_fronteir, vertex_fronteir, visited_by, allowed);
         culling <<<blocks, threads >>> (vertex_fronteir_size, offsets, vertex_fronteir, edge_fronteir, allowed, matrix_gpu, distance, visited_by);
@@ -308,6 +313,7 @@ std::pair<int *, MatrixCSR *> bfs_work_efficient(int n, MatrixCSR * matrix_gpu, 
     cudaFree(edge_fronteir);
     cudaFree(offsets);
     cudaFree(allowed);
+    free(matrix_metadata);
     
     return {distance, toReturn};
 }
@@ -316,6 +322,9 @@ std::pair<int *, MatrixCSR *> bfs_work_efficient(int n, MatrixCSR * matrix_gpu, 
 
 std::pair<int *, MatrixCSR *> bfs_work_efficient(int n, MatrixCSR * matrix_gpu, int * max_distance) {
     fprintf(stderr, "Work efficient BFS running\n");
+
+    MatrixCSR * matrix_metadata = shallowCopyMatrixCSRGPUtoCPU(matrix_gpu);
+
     int * vertex_fronteir;
     cudaMalloc(&vertex_fronteir, sizeof(int) * n);
 
@@ -323,7 +332,7 @@ std::pair<int *, MatrixCSR *> bfs_work_efficient(int n, MatrixCSR * matrix_gpu, 
     cudaMalloc(&visited_by, sizeof(int) * n);
     
     int * edge_fronteir;
-    cudaMalloc(&edge_fronteir, sizeof(int) * n);
+    cudaMalloc(&edge_fronteir, sizeof(int) * matrix_metadata->nnz);
 
     int * offsets;
     cudaMalloc(&offsets, sizeof(int) * n);
@@ -352,7 +361,7 @@ std::pair<int *, MatrixCSR *> bfs_work_efficient(int n, MatrixCSR * matrix_gpu, 
         write_sizes <<<blocks, threads >>> (vertex_fronteir_size, offsets, vertex_fronteir, matrix_gpu);
         prefixSumGPU(offsets, vertex_fronteir_size);
         cudaMemcpy(&edge_fronteir_size, offsets + vertex_fronteir_size - 1, sizeof(int), cudaMemcpyDeviceToHost);
-        assert(edge_fronteir_size < n);
+        assert(edge_fronteir_size < matrix_metadata->nnz);
         if(edge_fronteir_size == 0)
               break;
         write_edge_fronteir <<<blocks, threads >>> (vertex_fronteir_size, offsets, matrix_gpu, edge_fronteir, vertex_fronteir, visited_by, allowed);
@@ -367,6 +376,7 @@ std::pair<int *, MatrixCSR *> bfs_work_efficient(int n, MatrixCSR * matrix_gpu, 
     cudaFree(edge_fronteir);
     cudaFree(offsets);
     cudaFree(allowed);
+    free(matrix_metadata);
     
     return {distance, NULL};
 }
