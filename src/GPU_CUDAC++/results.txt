@@ -1,0 +1,28 @@
+System information.
+
+OS: Ubuntu 24.04.2 LTS (Noble Numbat)
+Kernel: 6.11.0-1015-gcp
+Platform: Google Cloud Platform VM
+GPU: NVIDIA L4
+Driver Version: 535.230.02
+CUDA Version: 12.2
+GPU Memory: 23,034 MiB
+
+
+Running AGMG (setup phase) on serial implementation (CPU) vs parallel implementation (GPU).
+
+Matrix (poisson)
+
+Poisson3500, CPU time = 27.54 seconds, GPU time = 4.39 seconds
+Poisson3000, CPU time = 19.77 seconds, GPU time = 2.96 seconds
+Poisson2500, CPU time = 13.51 seconds, GPU time = 1.63 seconds
+Poisson2000, CPU time = 8.26 seconds, GPU time = 0.99 seconds
+Poisson1500, CPU time = 4.33 seconds, GPU time = 0.62 seconds
+Poisson1000, CPU time = 1.62 seconds, GPU time = 0.36 seconds
+
+CSky3X matrices
+
+CSky3d10, CPU time = 0.01 seconds, GPU time = 0.04 seconds
+CSky3d20, CPU time = 0.02 seconds, GPU time = 0.04 seconds
+CSky3d20, CPU time = 0.05 seconds, GPU time = 0.04 seconds
+CSky3d80, CPU time = 1.23 seconds, GPU time = 0.10 seconds
