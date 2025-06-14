@@ -1,10 +1,7 @@
 #define BLELLOCH
 #define BFS_WORK_EFFICIENT
-// #define AGGREGATION_WORK_EFFICIENT
 #define NUMBER_OF_THREADS 1024
-// #define DEBUG
 // #define THRUST_SORT
-// #define SKIP_LEVELS 2
 #include "MatrixIO.cu"
 #include "MatrixAccess.cu"
 #include "MatrixOperations.cu"
@@ -91,7 +88,7 @@ int main(int argc, char * argv[]) {
 
     cudaalloctime.toc();
 
-    TicToc main_timer("Main timer", indent);
+    TicToc main_timer("AGMG total time", indent);
     main_timer.tic();
 
     indent += 4;
@@ -152,16 +149,11 @@ int main(int argc, char * argv[]) {
         initialize_array(A_CSRCPU->rows,  paired_with, -1);
 
 
-        #ifdef SKIP_LEVELS
-            int skip_levels = SKIP_LEVELS;
-        #else
-            int skip_levels = max_distance + 1;
-        #endif 
-
-        for(int i = 0; i < skip_levels; i++) {
+        
+        for(int i = 0; i <= max_distance; i++) {
             aggregation<<<number_of_blocks, number_of_threads>>>
             (A_CSRCPU->rows, neighbour_list, paired_with, allowed, A_CSR, Si, i,
-                ising0, bfs_distance, skip_levels);
+                ising0, bfs_distance, max_distance + 1);
             cudaDeviceSynchronize();
         }
 
