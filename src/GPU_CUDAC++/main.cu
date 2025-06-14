@@ -100,6 +100,7 @@ int main(int argc, char * argv[]) {
         A_CSRCPU = shallowCopyMatrixCSRGPUtoCPU(A_CSR);
 
         int nnz_now = A_CSRCPU->nnz;
+        printInfo(("NNZ at start of pass " + itoa(pass) + ": " + itoa(nnz_now)).c_str(), indent);
         if(nnz_now <= nnz_initial / tou) break;
 
         printLines();
@@ -446,6 +447,21 @@ int main(int argc, char * argv[]) {
             spmatrixmult_cudaSparse(A_CSR, P_gpu, cudasparse_handle),
             cudasparse_handle);
 
+        #ifdef DEBUG
+        if (newA_gpu != NULL) {
+            MatrixCSR temp_newA_struct_cpu; // Temporary struct on CPU stack
+            cudaError_t memcpy_err = cudaMemcpy(&temp_newA_struct_cpu, newA_gpu, sizeof(MatrixCSR), cudaMemcpyDeviceToHost);
+            if (memcpy_err == cudaSuccess) {
+                printInfo(("NNZ of coarsened matrix (newA_gpu) after pass " + itoa(pass) + ": " + itoa(temp_newA_struct_cpu.nnz)).c_str(), indent);
+            } else {
+                fprintf(stderr, "[ERROR] Pass %d: Failed to copy newA_gpu struct to CPU to get NNZ: %s\n", pass, cudaGetErrorString(memcpy_err));
+                printInfo(("NNZ of newA_gpu after pass " + itoa(pass) + ": Not available (memcpy error)").c_str(), indent);
+            }
+        } else {
+            printInfo(("newA_gpu is NULL after SpGeMM in pass " + itoa(pass) + ". No NNZ to report.").c_str(), indent);
+        }
+        #endif
+
         if(P_cumm == NULL)
             P_cumm = deepCopyMatrixCSRGPUtoGPU(P_gpu);
         else {
@@ -456,6 +472,10 @@ int main(int argc, char * argv[]) {
 
         
         cudaFree(bfs_distance);
+        if (distance_csr != NULL) {
+            freeMatrixCSRGPU(distance_csr);
+            distance_csr = NULL;
+        }
         freeMatrixCSRGPU(P_gpu);
         freeMatrixCSRGPU(P_transpose_gpu);
         freeMatrixCSRGPU(A_CSR);
