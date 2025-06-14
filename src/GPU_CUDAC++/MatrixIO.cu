@@ -385,6 +385,10 @@ MatrixCSR * readMatrixUnifiedMemoryCSR(std::string filename) {
 
 MatrixCSR * readMatrixCPUMemoryCSR(std::string filename) {
     std::ifstream fin(filename);
+    if (!fin.is_open()) {
+        printf("Error: Could not open file %s\n", filename.c_str());
+        exit(1);
+    }
     int M, N, L;
     // Ignore headers and comments:
     while (fin.peek() == '%') fin.ignore(2048, '\n');
@@ -407,7 +411,10 @@ MatrixCSR * readMatrixCPUMemoryCSR(std::string filename) {
 
     auto start = std::chrono::system_clock::now();
 
-    std::vector< std::vector <std::pair<int, float> > > matrix_data(M);
+    std::vector<std::pair<int, float>> *matrix_data = (std::vector<std::pair<int, float>> *)malloc(M * sizeof(std::vector<std::pair<int, float>>));
+    for(int i = 0; i < M; i++) {
+        new (&matrix_data[i]) std::vector<std::pair<int, float>>();
+    }
     for (int l = 0; l < L; l++) {
         int m, n;
         float data;
@@ -436,248 +443,10 @@ MatrixCSR * readMatrixCPUMemoryCSR(std::string filename) {
 
     auto end = std::chrono::system_clock::now();
     std::chrono::duration<float> diff = end-start;
-
-
-    return matrix_csr;
-}
-
-
-/*
-    Description : It reads the matrix in the file to GPU memory
-    in CSR format.
-
-    Parameters : 
-        string filename : Path to file.
-
-    Comments : File should be in .mtx format.
-
-    @author : mishraiiit
-*/
-
-MatrixCSR * readMatrixGPUMemoryCSR(std::string filename) {
-
-    MatrixCSR * matrix_csr_cpu = readMatrixCPUMemoryCSR(filename);
-    MatrixCSR * matrix_csr;
-
-    int * device_i, * device_j;
-    float * device_val;
-
-    cudaMalloc(&device_i, sizeof(int) * matrix_csr_cpu->nnz);
-    cudaMalloc(&device_j, sizeof(int) * matrix_csr_cpu->nnz);
-    cudaMalloc(&device_val, sizeof(float) * matrix_csr_cpu->nnz);
-
-    cudaMemcpy(device_i, matrix_csr_cpu->i,
-        sizeof(int) * (matrix_csr_cpu->rows + 1), cudaMemcpyHostToDevice);
-    cudaMemcpy(device_j, matrix_csr_cpu->j,
-        sizeof(int) * matrix_csr_cpu->nnz, cudaMemcpyHostToDevice);
-    cudaMemcpy(device_val, matrix_csr_cpu->val,
-        sizeof(float) * matrix_csr_cpu->nnz, cudaMemcpyHostToDevice);
-
-
-    free(matrix_csr_cpu->i);
-    free(matrix_csr_cpu->j);
-    free(matrix_csr_cpu->val);
-
-    matrix_csr_cpu->i = device_i;
-    matrix_csr_cpu->j = device_j;
-    matrix_csr_cpu->val = device_val;
-
-    cudaMalloc(&matrix_csr, sizeof(MatrixCSR));
-    cudaMemcpy(matrix_csr, matrix_csr_cpu, sizeof(MatrixCSR),
-        cudaMemcpyHostToDevice);
-
-    free(matrix_csr_cpu);
+    free(matrix_data);
 
     return matrix_csr;
 }
-
-
-/*
-    Description : It reads the matrix in the file to Unified Memory 
-    in CSC format.
-
-    Parameters : 
-        string filename : Path to file.
-
-    Comments : File should be in .mtx format.
-
-    @author : mishraiiit
-*/
-
-MatrixCSC * readMatrixUnifiedMemoryCSC(std::string filename) {
-    std::ifstream fin(filename);
-    int M, N, L;
-    // Ignore headers and comments:
-    while (fin.peek() == '%') fin.ignore(2048, '\n');
-    // Read defining parameters:
-    fin >> M >> N >> L;
-    // Read the data
-
-    MatrixCSC * matrix_csc;
-    cudaMallocManaged(&matrix_csc, sizeof(MatrixCSC));
-
-    matrix_csc->rows = M;
-    matrix_csc->cols = N;
-    matrix_csc->nnz = L;
-
-    cudaMallocManaged(&matrix_csc->i, sizeof(int) * L);
-    cudaMallocManaged(&matrix_csc->j, sizeof(int) * (matrix_csc->cols + 1));
-    cudaMallocManaged(&matrix_csc->val, sizeof(float) * L);
-
-    int filled = 0;
-
-    auto start = std::chrono::system_clock::now();
-
-    std::vector< std::vector <std::pair<int, float> > > matrix_data(N);
-    for (int l = 0; l < L; l++) {
-        int m, n;
-        float data;
-        fin >> m >> n >> data;
-        matrix_data[n - 1].push_back({m - 1, data});
-    }
-
-    for(int i = 0; i < N; i++) {
-        std::sort(matrix_data[i].begin(), matrix_data[i].end());
-        matrix_csc->j[i] = filled;
-        for(auto tp : matrix_data[i]) {
-            matrix_csc->i[filled] = tp.first;
-            matrix_csc->val[filled] = tp.second;
-            filled++;
-        }
-    }
-
-    matrix_csc->j[N] = filled;
-
-    assert(filled == L);
-    fin.close();
-    printInfo("Read matrix from file: " + filename, 4);
-    printInfo("Matrix size : " + itoa(M) + " x " + itoa(N) + ".", 4);
-
-    auto end = std::chrono::system_clock::now();
-    std::chrono::duration<float> diff = end-start;
-
-
-    return matrix_csc;
-}
-
-
-/*
-    Description : It reads the matrix in the file to CPU memory 
-    in CSC format.
-
-    Parameters : 
-        string filename : Path to file.
-
-    Comments : File should be in .mtx format.
-
-    @author : mishraiiit
-*/
-
-MatrixCSC * readMatrixCPUMemoryCSC(std::string filename) {
-    std::ifstream fin(filename);
-    int M, N, L;
-    // Ignore headers and comments:
-    while (fin.peek() == '%') fin.ignore(2048, '\n');
-    // Read defining parameters:
-    fin >> M >> N >> L;
-    // Read the data
-
-    MatrixCSC * matrix_csc;
-    matrix_csc = (MatrixCSC *) malloc(sizeof(MatrixCSC));
-
-    matrix_csc->rows = M;
-    matrix_csc->cols = N;
-    matrix_csc->nnz = L;
-
-    matrix_csc->i = (int *) malloc(sizeof(int) * L);
-    matrix_csc->j = (int *) malloc(sizeof(int) * (matrix_csc->cols + 1));
-    matrix_csc->val = (float *) malloc(sizeof(float) * L);
-
-    int filled = 0;
-
-    auto start = std::chrono::system_clock::now();
-
-    std::vector< std::vector <std::pair<int, float> > > matrix_data(N);
-    for (int l = 0; l < L; l++) {
-        int m, n;
-        float data;
-        fin >> m >> n >> data;
-        matrix_data[n - 1].push_back({m - 1, data});
-    }
-
-    for(int i = 0; i < N; i++) {
-        std::sort(matrix_data[i].begin(), matrix_data[i].end());
-        matrix_csc->j[i] = filled;
-        for(auto tp : matrix_data[i]) {
-            matrix_csc->i[filled] = tp.first;
-            matrix_csc->val[filled] = tp.second;
-            filled++;
-        }
-    }
-
-    matrix_csc->j[N] = filled;
-
-    assert(filled == L);
-    fin.close();
-    printInfo("Read matrix from file: " + filename, 4);
-    printInfo("Matrix size : " + itoa(M) + " x " + itoa(N) + ".", 4);
-
-    auto end = std::chrono::system_clock::now();
-    std::chrono::duration<float> diff = end-start;
-
-
-    return matrix_csc;
-}
-
-
-/*
-    Description : It reads the matrix in the file to GPU memory 
-    in CSC format.
-
-    Parameters : 
-        string filename : Path to file.
-
-    Comments : File should be in .mtx format.
-
-    @author : mishraiiit
-*/
-
-MatrixCSC * readMatrixGPUMemoryCSC(std::string filename) {
-
-    MatrixCSC * matrix_csc_cpu = readMatrixCPUMemoryCSC(filename);
-    MatrixCSC * matrix_csc;
-
-    int * device_i, * device_j;
-    float * device_val;
-
-    cudaMalloc(&device_i, sizeof(int) * matrix_csc_cpu->nnz);
-    cudaMalloc(&device_j, sizeof(int) * (matrix_csc_cpu->cols + 1));
-    cudaMalloc(&device_val, sizeof(float) * matrix_csc_cpu->nnz);
-
-    cudaMemcpy(device_i, matrix_csc_cpu->i,
-        sizeof(int) * matrix_csc_cpu->nnz, cudaMemcpyHostToDevice);
-    cudaMemcpy(device_j, matrix_csc_cpu->j,
-        sizeof(int) * (matrix_csc_cpu->cols + 1), cudaMemcpyHostToDevice);
-    cudaMemcpy(device_val, matrix_csc_cpu->val,
-        sizeof(float) * matrix_csc_cpu->nnz, cudaMemcpyHostToDevice);
-
-    free(matrix_csc_cpu->i);
-    free(matrix_csc_cpu->j);
-    free(matrix_csc_cpu->val);
-
-    matrix_csc_cpu->i = device_i;
-    matrix_csc_cpu->j = device_j;
-    matrix_csc_cpu->val = device_val;
-
-    cudaMalloc(&matrix_csc, sizeof(MatrixCSC));
-    cudaMemcpy(matrix_csc, matrix_csc_cpu, sizeof(MatrixCSC),
-        cudaMemcpyHostToDevice);
-
-    free(matrix_csc_cpu);
-
-    return matrix_csc;
-}
-
 
 /*
     Description : Writes given CSR matrix to file.
