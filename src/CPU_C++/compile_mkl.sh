@@ -16,7 +16,7 @@ SOURCE_FILE=$1
 OUTPUT_NAME=${2:-${SOURCE_FILE%.cpp}}  # Use second argument or derive from source file
 
 # Compile with Intel MKL
-g++ -std=c++11 -msse4 -O3 \
+if g++ -std=c++11 -msse4 -O3 \
     $SOURCE_FILE \
     -o $OUTPUT_NAME \
     -L/usr/lib/x86_64-linux-gnu \
@@ -24,8 +24,18 @@ g++ -std=c++11 -msse4 -O3 \
     -lpthread -lm -ldl \
     -DMKL_ILP64 -m64 \
     -I/usr/include/mkl \
-    -I${PROJECT_ROOT}/lib
-
-echo "Compilation completed. Output: $OUTPUT_NAME"
-
-
+    -I${PROJECT_ROOT}/lib 2>&1; then
+    echo "Compilation successful. Output: $OUTPUT_NAME"
+else
+    echo "Compilation failed with error:"
+    g++ -std=c++11 -msse4 -O3 \
+        $SOURCE_FILE \
+        -o $OUTPUT_NAME \
+        -L/usr/lib/x86_64-linux-gnu \
+        -lmkl_intel_ilp64 -lmkl_sequential -lmkl_core \
+        -lpthread -lm -ldl \
+        -DMKL_ILP64 -m64 \
+        -I/usr/include/mkl \
+        -I${PROJECT_ROOT}/lib 2>&1
+    exit 1
+fi

@@ -8,21 +8,149 @@ Driver Version: 535.230.02
 CUDA Version: 12.2
 GPU Memory: 23,034 MiB
 
+/0/0                      memory         16GiB System memory
+/0/1                      processor      Intel(R) Xeon(R) CPU @ 2.20GHz
+/0/100/3                  display        AD104GL [L4]
+/0/100/4                  network        Virtio network device
+/0/100/4/0  ens4          network        Ethernet interface
+/0/100/6    /dev/nvme0    storage        nvme_card-pd
+
+-------------
+
+All tests are being done on these settings.
+
+KTG = 10
+npass = 2
+Tou = 8
 
 Running AGMG (setup phase) on serial implementation (CPU) vs parallel implementation (GPU).
 
-Matrix (poisson)
+Matrix (poisson problem)
 
-Poisson3500, CPU time = 27.54 seconds, GPU time = 4.39 seconds
-Poisson3000, CPU time = 19.77 seconds, GPU time = 2.96 seconds
-Poisson2500, CPU time = 13.51 seconds, GPU time = 1.63 seconds
-Poisson2000, CPU time = 8.26 seconds, GPU time = 0.99 seconds
-Poisson1500, CPU time = 4.33 seconds, GPU time = 0.62 seconds
-Poisson1000, CPU time = 1.62 seconds, GPU time = 0.36 seconds
+Poisson3500 (Matrix size: 3500^2 * 3500^2), CPU time = 27.54 seconds, GPU time = 4.39 seconds
+Poisson3000 (Matrix size: 3000^2 * 3000^2), CPU time = 19.77 seconds, GPU time = 2.96 seconds
+Poisson2500 (Matrix size: 2500^2 * 2500^2), CPU time = 13.51 seconds, GPU time = 1.63 seconds
+Poisson2000 (Matrix size: 2000^2 * 2000^2), CPU time = 8.26 seconds, GPU time = 0.99 seconds
+Poisson1500 (Matrix size: 1500^2 * 1500^2), CPU time = 4.33 seconds, GPU time = 0.62 seconds
+Poisson1000 (Matrix size: 1000^2 * 1000^2), CPU time = 1.62 seconds, GPU time = 0.36 seconds
 
-CSky3X matrices
+Sky3X matrices (Skyscrapper problem)
 
-CSky3d10, CPU time = 0.01 seconds, GPU time = 0.04 seconds
-CSky3d20, CPU time = 0.02 seconds, GPU time = 0.04 seconds
-CSky3d20, CPU time = 0.05 seconds, GPU time = 0.04 seconds
-CSky3d80, CPU time = 1.23 seconds, GPU time = 0.10 seconds
+CSky3d10 (Matrix size: 10^3 * 10^3), CPU time = 0.01 seconds, GPU time = 0.04 seconds
+CSky3d20 (Matrix size: 20^3 * 20^3), CPU time = 0.02 seconds, GPU time = 0.04 seconds
+CSky3d30 (Matrix size: 30^3 * 30^3), CPU time = 0.05 seconds, GPU time = 0.04 seconds
+matvf3dSky80 (Matrix size: 80^3 * 80^3), CPU time = 1.23 seconds, GPU time = 0.09 seconds
+
+-----
+
+The above just compares the setup phase run-time.
+
+We also wanna ensure that the quality of aggregates hasn't reduced. So we run the above Setup phase are preconditioner to BiCG on CPU (for both), as if we use BiCG parallel implementation for GPU AGMG that would easily win on the solve phase. Our goal is to ensure the solve phase isn't negatively affected.
+So when we run AGMG for the matrices above, we also store the Prolongation matrix (P) as CSR format on disk. 
+
+So BiCG makes the preconditioner in both the cases and starts the iteartive solve. We notice that the iterations come out to be same on the above matrices (and isn't affected).
+
+Here are some of the runs (extract BiCGStab_SolveTimer and iterations and tolerance from it)
+Format of CLI is matrix_name and (CPU or GPU - where the AGMG Prolongation matrix is coming from)
+
+ayushmishra_iit@instance-20250609-144523:~/MultiGridSolver/src/common$ ./bicg poisson100 cpu
+Read matrix from file: ../../matrices/poisson100.mtx
+Read matrix from file: ../../matrices/poisson100promatrix_cpu.mtx
+    [time] BiCGStab_SolveTimer                        : 0.023751.
+    [info] Tolerance                                  : 7.37525e-07.
+    [info] Number of iterations BICG                  : 11.
+ayushmishra_iit@instance-20250609-144523:~/MultiGridSolver/src/common$ ./bicg poisson100 gpu
+Read matrix from file: ../../matrices/poisson100.mtx
+Read matrix from file: ../../matrices/poisson100promatrix_gpu.mtx
+    [time] BiCGStab_SolveTimer                        : 0.024944.
+    [info] Tolerance                                  : 2.64057e-07.
+    [info] Number of iterations BICG                  : 12.
+ayushmishra_iit@instance-20250609-144523:~/MultiGridSolver/src/common$ 
+ayushmishra_iit@instance-20250609-144523:~/MultiGridSolver/src/common$ 
+ayushmishra_iit@instance-20250609-144523:~/MultiGridSolver/src/common$ ./bicg poisson100 gpu
+Read matrix from file: ../../matrices/poisson100.mtx
+Read matrix from file: ../../matrices/poisson100promatrix_gpu.mtx
+    [time] BiCGStab_SolveTimer                        : 0.012679.
+    [info] Tolerance                                  : 5.19832e-07.
+    [info] Number of iterations BICG                  : 5.
+ayushmishra_iit@instance-20250609-144523:~/MultiGridSolver/src/common$ ./bicg poisson100 cpu
+Read matrix from file: ../../matrices/poisson100.mtx
+Read matrix from file: ../../matrices/poisson100promatrix_cpu.mtx
+    [time] BiCGStab_SolveTimer                        : 0.013537.
+    [info] Tolerance                                  : 4.51153e-07.
+    [info] Number of iterations BICG                  : 5.
+ayushmishra_iit@instance-20250609-144523:~/MultiGridSolver/src/common$ 
+ayushmishra_iit@instance-20250609-144523:~/MultiGridSolver/src/common$ 
+ayushmishra_iit@instance-20250609-144523:~/MultiGridSolver/src/common$ ./bicg poisson1000 cpu
+Read matrix from file: ../../matrices/poisson1000.mtx
+Read matrix from file: ../../matrices/poisson1000promatrix_cpu.mtx
+    [time] BiCGStab_SolveTimer                        : 3.025980.
+    [info] Tolerance                                  : 2.59212e-07.
+    [info] Number of iterations BICG                  : 6.
+ayushmishra_iit@instance-20250609-144523:~/MultiGridSolver/src/common$ ./bicg poisson1000 gpu
+Read matrix from file: ../../matrices/poisson1000.mtx
+Read matrix from file: ../../matrices/poisson1000promatrix_gpu.mtx
+    [time] BiCGStab_SolveTimer                        : 2.955931.
+    [info] Tolerance                                  : 2.1401e-07.
+    [info] Number of iterations BICG                  : 6.
+ayushmishra_iit@instance-20250609-144523:~/MultiGridSolver/src/common$ 
+ayushmishra_iit@instance-20250609-144523:~/MultiGridSolver/src/common$ 
+ayushmishra_iit@instance-20250609-144523:~/MultiGridSolver/src/common$ ./bicg CSky3d30 gpu
+Read matrix from file: ../../matrices/CSky3d30.mtx
+Read matrix from file: ../../matrices/CSky3d30promatrix_gpu.mtx
+    [time] BiCGStab_SolveTimer                        : 0.079635.
+    [info] Tolerance                                  : 1.89111e-07.
+    [info] Number of iterations BICG                  : 4.
+ayushmishra_iit@instance-20250609-144523:~/MultiGridSolver/src/common$ ./bicg CSky3d30 cpu
+Read matrix from file: ../../matrices/CSky3d30.mtx
+Read matrix from file: ../../matrices/CSky3d30promatrix_cpu.mtx
+    [time] BiCGStab_SolveTimer                        : 0.061964.
+    [info] Tolerance                                  : 8.39888e-08.
+    [info] Number of iterations BICG                  : 4.
+ayushmishra_iit@instance-20250609-144523:~/MultiGridSolver/src/common$ 
+ayushmishra_iit@instance-20250609-144523:~/MultiGridSolver/src/common$ ./bicg matvf3dSky80
+Incorrect number of arguments.
+Usage: $ ./main_bicg <matrix_name> <cpu|gpu>
+ayushmishra_iit@instance-20250609-144523:~/MultiGridSolver/src/common$ ./bicg matvf3dSky80 cpu
+Read matrix from file: ../../matrices/matvf3dSky80.mtx
+Read matrix from file: ../../matrices/matvf3dSky80promatrix_cpu.mtx
+
+
+    [time] BiCGStab_SolveTimer                        : 7.704781.
+    [info] Tolerance                                  : 6.50079e-07.
+    [info] Number of iterations BICG                  : 6.
+ayushmishra_iit@instance-20250609-144523:~/MultiGridSolver/src/common$ 
+ayushmishra_iit@instance-20250609-144523:~/MultiGridSolver/src/com
+ayushmishra_iit@instance-20250609-144523:~/MultiGridSolver/src/common$ 
+ayushmishra_iit@instance-20250609-144523:~/MultiGridSolver/src/common$ ./bicg poisson2000 cpu
+Read matrix from file: ../../matrices/poisson2000.mtx
+Read matrix from file: ../../matrices/poisson2000promatrix_cpu.mtx
+    [time] BiCGStab_SolveTimer                        : 16.225315.
+    [info] Tolerance                                  : 2.74907e-07.
+    [info] Number of iterations BICG                  : 6.
+ayushmishra_iit@instance-20250609-144523:~/MultiGridSolver/src/common$ 
+ayushmishra_iit@instance-20250609-144523:~/MultiGridSolver/src/common$ ./bicg poisson2000 gpu
+Read matrix from file: ../../matrices/poisson2000.mtx
+Read matrix from file: ../../matrices/poisson2000promatrix_gpu.mtx
+    [time] BiCGStab_SolveTimer                        : 15.998832.
+    [info] Tolerance                                  : 2.81922e-07.
+ayushmishra_iit@instance-20250609-144523:~/MultiGridSolver/src/common$ 
+ayushmishra_iit@instance-20250609-144523:~/MultiGridSolver/src/common$ 
+ayushmishra_iit@instance-20250609-144523:~/MultiGridSolver/src/common$ ./bicg poisson2000 gpu
+Read matrix from file: ../../matrices/poisson2000.mtx
+Read matrix from file: ../../matrices/poisson2000promatrix_gpu.mtx
+    [time] BiCGStab_SolveTimer                        : 15.808508.
+    [info] Tolerance                                  : 2.81922e-07.
+    [info] Number of iterations BICG                  : 6.
+ayushmishra_iit@instance-20250609-144523:~/MultiGridSolver/src/common$ 
+ayushmishra_iit@instance-20250609-144523:~/MultiGridSolver/src/common$ ./bicg CSky3d30 gpu
+Read matrix from file: ../../matrices/CSky3d30.mtx
+Read matrix from file: ../../matrices/CSky3d30promatrix_gpu.mtx
+    [time] BiCGStab_SolveTimer                        : 0.072853.
+    [info] Tolerance                                  : 1.89111e-07.
+    [info] Number of iterations BICG                  : 4.
+
+
+For 2D problems, to visualize the aggregates, we also reverse-engineer the grid structure from the matrix. And can see the quality of aggregates on CSky2d100 doesn't seem to be decreased.
+
+I will add two photos of the grid (100 x 100) for both CPU AGMG and GPU AGMG.

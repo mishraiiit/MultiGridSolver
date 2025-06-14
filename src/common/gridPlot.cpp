@@ -48,14 +48,15 @@ void dfs(int start) {
 
 int main(int argc, char ** argv) {
 
-  if(argc != 2) {
+  if(argc != 3) {
     printf("Invalid arguments.\n");
-    printf("First argument should be the name of the prolongation matrix without the suffix promatrix.mtx.\n");
+    printf("First argument should be the name of the prolongation matrix without the suffix promatrix_cpu.mtx or promatrix_gpu.mtx.\n");
+    printf("Second argument should be the type of the matrix, either 'cpu' or 'gpu'.\n");
     exit(1);
   }
 
   string matrixname = argv[1];
-  SMatrix T = readMatrix(string("../../matrices/") + matrixname + string("promatrix.mtx"));
+  SMatrix T = readMatrix(string("../../matrices/") + matrixname + string("promatrix_") + string(argv[2]) + string(".mtx"));
 
   int elements = T.rows();
   int clusters = T.cols();
@@ -101,6 +102,6 @@ int main(int argc, char ** argv) {
   for(auto p : points) {
     result.insert(p.first.first, p.first.second) = p.second;
   }
-  writeMatrix(string("../../matrices/") + matrixname + string("grid.mtx"), result);
+  writeMatrix(string("../../matrices/") + matrixname + string("grid_") + string(argv[2]) + string(".mtx"), result);
   return 0;
 }

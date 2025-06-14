@@ -1,0 +1,6 @@
+
+Scalable GPU graph algorithms by Merrill - https://research.nvidia.com/sites/default/files/pubs/2012-02_Scalable-GPU-Graph/ppo213s-merrill.pdf for parallel BFS.
+
+M Hariss - Parallel Prefix Sum - https://developer.nvidia.com/gpugems/gpugems3/part-vi-gpu-computing/chapter-39-parallel-prefix-sum-scan-cuda
+
+Code for this project - https://github.com/mishraiiit/MultiGridSolver/tree/master

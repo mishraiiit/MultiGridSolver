@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 colors =  'rgbcmyk'
 
 matrix_filename = '../../matrices/' + sys.argv[1] + '.mtx'
+output_filename = '../../matrices/' + sys.argv[1] + '.png'
 
 lines = [line.rstrip('\n').strip() for line in open(matrix_filename)]
 first_line_not_percent = 0
@@ -33,4 +34,4 @@ for line in lines[first_line_not_percent + 1:]:
     c.append(colors[mapping[cc] % len(colors)])
 
 plt.scatter(x, y, s = 4, c = c)
-plt.show()
+plt.savefig(output_filename)

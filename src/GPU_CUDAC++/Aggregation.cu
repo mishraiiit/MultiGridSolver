@@ -13,6 +13,7 @@
 // This is used in G0 computation in the research paper.
 // To form the set G0, we need to compute the sum of the absolute values of the elements in the row and column of the matrix (except the diagonal elements).
 // This stores whether the element is in G0 or not (in the hash table type structure, ising0[id] = 1 means the element is in G0).
+// We are using a two pointer approach here.
 __global__ void computeRowColAbsSum(MatrixCSR * matrix_csr, MatrixCSC * matrix_csc, int * ising0, float ktg, int iteration) {
 
     int id = blockIdx.x * blockDim.x + threadIdx.x;
@@ -65,42 +66,23 @@ __global__ void computeRowColAbsSum(MatrixCSR * matrix_csr, MatrixCSC * matrix_c
 // This is used in the computation of Si in the research paper.
 // Si[i] is the negative sum of the absolute values of the elements in the row and column of the matrix (except the diagonal elements) of the node i.
 __global__ void comptueSi(MatrixCSR * matrix_csr, MatrixCSC * matrix_csc, float * output) {
-int id = blockIdx.x * blockDim.x + threadIdx.x;
+    int id = blockIdx.x * blockDim.x + threadIdx.x;
     if(id >= matrix_csr->rows)
         return;
 
-    int row_start = matrix_csr->i[id];
-    int row_end = matrix_csr->i[id + 1];
-
-    int col_start = matrix_csc->j[id];
-    int col_end = matrix_csc->j[id + 1];
-
     float ans = 0;
-    while(row_start < row_end || col_start < col_end) {
-        if(row_start < row_end && col_start < col_end) {
-            if(matrix_csr->j[row_start] < matrix_csc->i[col_start]) {
-                if(matrix_csr->j[row_start] != id)
-                    ans += matrix_csr->val[row_start] / 2;
-                row_start++;
-            } else if(matrix_csr->j[row_start] > matrix_csc->i[col_start]) {
-                if(matrix_csc->i[col_start] != id)
-                    ans += matrix_csc->val[col_start] / 2;
-                col_start++;
-            } else {
-                if(matrix_csr->j[row_start] != id)
-                    ans += (matrix_csr->val[row_start] + matrix_csc->val[col_start]) / 2;
-                row_start++;
-                col_start++;
-            }
-        } 
-        else if(row_start < row_end) {
-            if(matrix_csr->j[row_start] != id)
-                ans += matrix_csr->val[row_start] / 2;
-            row_start++;
-        } else {
-            if(matrix_csc->i[col_start] != id)
-                ans += matrix_csc->val[col_start] / 2;
-            col_start++;
+    
+    // Process row elements
+    for(int i = matrix_csr->i[id]; i < matrix_csr->i[id + 1]; i++) {
+        if(matrix_csr->j[i] != id) {  // Skip diagonal
+            ans += matrix_csr->val[i] / 2;
+        }
+    }
+    
+    // Process column elements
+    for(int i = matrix_csc->j[id]; i < matrix_csc->j[id + 1]; i++) {
+        if(matrix_csc->i[i] != id) {  // Skip diagonal
+            ans += matrix_csc->val[i] / 2;
         }
     }
 
@@ -189,52 +171,26 @@ __device__ int okay(int i, int j, MatrixCSR * matrix, float * Si) {
     bfs_distance tells the distance of a node from node 0.
 */
 
-#ifdef AGGREGATION_WORK_EFFICIENT
 
-    __global__ void aggregation(int n, MatrixCSR * neighbour_list , int * paired_with, int * allowed, MatrixCSR * matrix, float * Si, int distance, int * ising0, int * bfs_distance, MatrixCSR * distance_csr, int offset, int total) {
-        int i = blockDim.x * blockIdx.x + threadIdx.x;
-        if(i >= total) return;
-        i = distance_csr->j[offset + i];
-        if(ising0[i]) return;
-        int current_distance = bfs_distance[i];
-        assert(current_distance == distance);
-        if(paired_with[i] != -1) return;
-        for(int j = neighbour_list->i[i]; j < neighbour_list->i[i + 1]; j++) {
-            if(!allowed[j]) continue;
-            int possible_j = neighbour_list->j[j];
-            if(current_distance == bfs_distance[possible_j]) continue;
-            if(!okay(i, possible_j, matrix, Si)) continue;
-            if(atomicCAS(&paired_with[possible_j], -1, i) == -1) {
-                paired_with[i] = possible_j;
-                return;
-            }
+__global__ void aggregation(int n, MatrixCSR * neighbour_list, int * paired_with, int * allowed, MatrixCSR * matrix, float * Si, int distance, int * ising0, int * bfs_distance, int levels) {
+    int i = blockDim.x * blockIdx.x + threadIdx.x;
+    if(i >= n) return;
+    if(ising0[i]) return;
+    int current_distance = bfs_distance[i];
+    if(current_distance  % levels != distance) return;
+    if(paired_with[i] != -1) return;
+    for(int j = neighbour_list->i[i]; j < neighbour_list->i[i + 1]; j++) {
+        if(!allowed[j]) continue;
+        int possible_j = neighbour_list->j[j];
+        if(current_distance == bfs_distance[possible_j]) continue;
+        if(!okay(i, possible_j, matrix, Si)) continue;
+        if(atomicCAS(&paired_with[possible_j], -1, i) == -1) {
+            paired_with[i] = possible_j;
+            return;
         }
-        paired_with[i] = i;
     }
-
-#else
-
-    __global__ void aggregation(int n, MatrixCSR * neighbour_list, int * paired_with, int * allowed, MatrixCSR * matrix, float * Si, int distance, int * ising0, int * bfs_distance, int levels) {
-        int i = blockDim.x * blockIdx.x + threadIdx.x;
-        if(i >= n) return;
-        if(ising0[i]) return;
-        int current_distance = bfs_distance[i];
-        if(current_distance  % levels != distance) return;
-        if(paired_with[i] != -1) return;
-        for(int j = neighbour_list->i[i]; j < neighbour_list->i[i + 1]; j++) {
-            if(!allowed[j]) continue;
-            int possible_j = neighbour_list->j[j];
-            if(current_distance == bfs_distance[possible_j]) continue;
-            if(!okay(i, possible_j, matrix, Si)) continue;
-            if(atomicCAS(&paired_with[possible_j], -1, i) == -1) {
-                paired_with[i] = possible_j;
-                return;
-            }
-        }
-        paired_with[i] = i;
-    }
-
-#endif
+    paired_with[i] = i;
+}
 
 __global__ void get_useful_pairs(int n, int * paired_with, int * useful_pairs) {
     int i = blockDim.x * blockIdx.x + threadIdx.x;
@@ -265,6 +221,8 @@ __global__ void get_aggregations_count(int nc, int * aggregations, int * paired_
     aggregation_count[i] = 1 + (aggregations[i] != paired_with[aggregations[i]]);
 }
 
+
+// Creates P matrix in CSR format (prolongation matrix).
 __global__ void create_p_matrix_transpose (int nc, int * aggregations, int * paired_with, int * aggregation_count, int * matrix_i, int * matrix_j, float * matrix_val) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     if(i >= nc) return;
