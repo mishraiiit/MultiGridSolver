@@ -163,27 +163,43 @@ __device__ int okay(int i, int j, MatrixCSR * matrix, float * Si) {
     This is the main function for initial_std::pairwise_aggregation.
     n is the number of rows in the matrix.
     neighbour_list is the matrix (adjacency matrix) in CSR format.
-    allowed marks the positions in the neighbour_list which are not useful
-    (the links with which aggregation shouldn't be formed).
-    distance tells the distance of the nodes in which aggregation is done on in this kernel. Odd or Even.
+    allowed marks the positions in the neighbour_list which are not useful (so edges with which aggregation shouldn't be formed).
+    distance tells the distance of the nodes in which aggregation is done on in this kernel.
     Si is the array containing the Si values in the paper.
     ising0 contains the node which are to be kept out of aggregation.
     bfs_distance tells the distance of a node from node 0.
+
+    Output is paired_with array (which tells aggregation of a node with which node).
 */
 
 
-__global__ void aggregation(int n, MatrixCSR * neighbour_list, int * paired_with, int * allowed, MatrixCSR * matrix, float * Si, int distance, int * ising0, int * bfs_distance, int levels) {
+__global__ void aggregation(int n, MatrixCSR * neighbour_list, int * paired_with, int * allowed, MatrixCSR * matrix, float * Si, int distance, int * ising0, int * bfs_distance) {
     int i = blockDim.x * blockIdx.x + threadIdx.x;
-    if(i >= n) return;
-    if(ising0[i]) return;
+
+    // If the node is out of bounds or is in G0, we don't need to do anything.
+    if(i >= n || ising0[i]) return;
+
     int current_distance = bfs_distance[i];
-    if(current_distance  % levels != distance) return;
+
+    // As we are going level by level, we don't need to do anything for nodes which are not at the current distance.
+    if(current_distance != distance) return;
+
+    // If the node is already paired, we don't need to do anything.
     if(paired_with[i] != -1) return;
     for(int j = neighbour_list->i[i]; j < neighbour_list->i[i + 1]; j++) {
+        // Check if the pair is even allowed.
         if(!allowed[j]) continue;
         int possible_j = neighbour_list->j[j];
+        // If the node is at the same distance, it's possible that in parallel it may be trying to pair
+        // with some other node. So this ensures that no other thread/node in parallel takes us (current node).
         if(current_distance == bfs_distance[possible_j]) continue;
+
+        // If the pair is not okay, we don't need to do anything.
+        // Okay means ii - Si + ajj - Sj >= 0.
         if(!okay(i, possible_j, matrix, Si)) continue;
+
+        // If the pair is allowed, we try to pair the nodes.
+        // Also ensuring that no other thread/node in parallel takes this.
         if(atomicCAS(&paired_with[possible_j], -1, i) == -1) {
             paired_with[i] = possible_j;
             return;
@@ -192,6 +208,9 @@ __global__ void aggregation(int n, MatrixCSR * neighbour_list, int * paired_with
     paired_with[i] = i;
 }
 
+// This is basically used to get the number of aggregates.
+// paired_with[i] contains the node with which i is aggregated.
+// So we count 1 for only one from the pair (i, paired_with[i]).
 __global__ void get_useful_pairs(int n, int * paired_with, int * useful_pairs) {
     int i = blockDim.x * blockIdx.x + threadIdx.x;
     if(i >= n)
@@ -205,16 +224,22 @@ __global__ void get_useful_pairs(int n, int * paired_with, int * useful_pairs) {
     }
 }
 
+// Marks the leader of every aggregated in the aggregations array.
+// The other can be obtained by just calling the paired_with[] array.
 __global__ void mark_aggregations(int n, int * aggregations, int * useful_pairs) {
     int i = blockDim.x * blockIdx.x + threadIdx.x;
     if(i >= n) return;
-    int curr = useful_pairs[i];
-    int prev = (i == 0) ? 0 : useful_pairs[i - 1];
-    if(curr != prev) {
-        aggregations[curr - 1] = i;
+
+    // This tells if i is the leader of the aggregate.
+    int currPrefixAggregateCount = useful_pairs[i];
+    int prevPrefixAggregateCount = (i == 0) ? 0 : useful_pairs[i - 1];
+    if(currPrefixAggregateCount != prevPrefixAggregateCount) {
+        // This tells there is a leader of an aggregate at this index.
+        aggregations[currPrefixAggregateCount - 1] = i;
     }
 }
 
+// Calculates the size of every aggregate. It's either 1 or 2.
 __global__ void get_aggregations_count(int nc, int * aggregations, int * paired_with, int *aggregation_count) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     if(i >= nc) return;
@@ -223,6 +248,7 @@ __global__ void get_aggregations_count(int nc, int * aggregations, int * paired_
 
 
 // Creates P matrix in CSR format (prolongation matrix).
+// aggregations[i] is the leader of the aggregate.
 __global__ void create_p_matrix_transpose (int nc, int * aggregations, int * paired_with, int * aggregation_count, int * matrix_i, int * matrix_j, float * matrix_val) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     if(i >= nc) return;

@@ -146,10 +146,11 @@ int main(int argc, char * argv[]) {
         TicToc aggregationtime("Aggregation time", indent);
         aggregationtime.tic();
 
+        // Initialize the paired_with array to -1.
         initialize_array(A_CSRCPU->rows,  paired_with, -1);
 
-
-        
+        // Iterate over all the levels.
+        // We find aggreagtes level by level.
         for(int i = 0; i <= max_distance; i++) {
             aggregation<<<number_of_blocks, number_of_threads>>>
             (A_CSRCPU->rows, neighbour_list, paired_with, allowed, A_CSR, Si, i,
@@ -163,6 +164,9 @@ int main(int argc, char * argv[]) {
 
         TicToc get_usefule_pairs_time("Get useful_pairs time", indent);
         get_usefule_pairs_time.tic();
+        // Counts one for a pair.
+        // useful_pairs[i] = 1 if i is the leader of an aggregate.
+        // Leader is defined as the node which is smaller.
         get_useful_pairs<<<number_of_blocks, number_of_threads>>>
         (A_CSRCPU->rows, paired_with, useful_pairs);
         cudaDeviceSynchronize();
@@ -170,6 +174,8 @@ int main(int argc, char * argv[]) {
         get_usefule_pairs_time.toc();
 
 
+        // Computes prefix sum of useful_pairs.
+        // In the end on the prefix sum array, we can number the pair by looking at useful_pairs[i] - useful_pairs[i - 1].
         TicToc prefix_sum("Sum kernel", indent);
         prefix_sum.tic();
         prefixSumGPU(useful_pairs, A_CSRCPU->rows);
@@ -181,20 +187,28 @@ int main(int argc, char * argv[]) {
         P_matrix_creation_time.tic();
 
         int nc;
+        // nc is the total number of aggregates.
+        // Last element of useful_pairs is the total number of aggregates.
         assert(cudaMemcpy(&nc, useful_pairs + A_CSRCPU->rows - 1,
             sizeof(int), cudaMemcpyDeviceToHost) == cudaSuccess);
 
+        // Aggregations array would be of size nc, and it will contain the leader of every aggregate.
         mark_aggregations <<<number_of_blocks, number_of_threads>>>
         (A_CSRCPU->rows, aggregations, useful_pairs);
 
         cudaDeviceSynchronize();
 
+        // Calculates the size of every aggregate in aggregation_count array.
         get_aggregations_count <<< (nc + NUMBER_OF_THREADS - 1) / NUMBER_OF_THREADS, NUMBER_OF_THREADS >>>
         (nc, aggregations, paired_with, aggregation_count);
         cudaDeviceSynchronize();
 
+        // Computes prefix sum of aggregation_count.
+        // The last element should sum to be n.
         prefixSumGPU(aggregation_count, nc);
 
+        // nnz_in_p_matrix is the total number of non-zero elements in the P matrix.
+        // Last element of aggregation_count is the total number of non-zero elements in the P matrix.
         int nnz_in_p_matrix;
         assert(cudaMemcpy(&nnz_in_p_matrix, aggregation_count + nc - 1,
             sizeof(int), cudaMemcpyDeviceToHost) == cudaSuccess);
