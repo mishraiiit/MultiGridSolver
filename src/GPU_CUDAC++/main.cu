@@ -153,7 +153,7 @@ int main(int argc, char * argv[]) {
         for(int i = 0; i <= max_distance; i++) {
             aggregation<<<number_of_blocks, number_of_threads>>>
             (A_CSRCPU->rows, neighbour_list, paired_with, allowed, A_CSR, Si, i,
-                ising0, bfs_distance, max_distance + 1);
+                ising0, bfs_distance);
             cudaDeviceSynchronize();
         }
 
