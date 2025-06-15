@@ -1,9 +1,3 @@
-clean:
-	rm -rf ./poisson ./bicg
-
-poisson:
-	g++ -std=c++11 poisson.cpp -o poisson -msse4 -O4
-
 bicg:
 	g++ -std=c++11 bicg.cpp -o bicg -msse4 -O4 \
 		-I/usr/include/eigen3 \
@@ -12,3 +6,9 @@ bicg:
 		-lpthread -lm -ldl \
 		-DMKL_ILP64 -m64 \
 		-I/usr/include/mkl
+
+clean:
+	rm -rf ./poisson ./bicg
+
+poisson:
+	g++ -std=c++11 poisson.cpp -o poisson -msse4 -O4

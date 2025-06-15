@@ -7,7 +7,6 @@
 #include <string>
 #include <vector>
 #include "../common/MatrixIO.cpp"
-#include "../common/json.hpp"
 #include "../CPU_C++/TicToc.cpp"
 #include <typeinfo>
 #include <string>
@@ -140,7 +139,7 @@ int main (int argc, char ** argv) {
   srand(0);
   if(argc != 3) {
     printf("Incorrect number of arguments.\n");
-    printf("Usage: $ ./main_bicg <matrix_name> <cpu|gpu>\n");
+    printf("Usage: $ ./main_bicg <matrix_name> <cpu|gpu>\n matrix_name is the name of the matrix in the matrices folder\n gpu/gpu is the prolongation matrix from AGMG, it is also saved in the matrices folder after running the AGMG script for either GPU or CPU\n");
     exit(1);
   }
 
