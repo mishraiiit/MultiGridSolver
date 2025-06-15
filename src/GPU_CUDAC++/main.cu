@@ -88,7 +88,7 @@ int main(int argc, char * argv[]) {
 
     cudaalloctime.toc();
 
-    TicToc main_timer("AGMG total time", indent);
+    TicToc main_timer("AGMG Core Algorithm Time", indent);
     main_timer.tic();
 
     indent += 4;

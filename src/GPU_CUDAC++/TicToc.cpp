@@ -31,7 +31,7 @@ class TicToc {
             for(int i = 0; i < level; i++) {
                 fprintf(stderr, " ");            
             }
-            while(s.size() != 40)
+            while(s.size() != 60)
                 s = s + ' ';
             fprintf(stderr, "%s : %lf\n", s.c_str(), diff.count());            
         }
